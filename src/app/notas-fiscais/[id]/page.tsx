@@ -63,7 +63,7 @@ export default async function NfPage({ params, searchParams }: { params: Promise
         )}
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">
         <Card titulo={`Parcelas / duplicatas (${nf.parcelas.length})`} rodape={Math.abs(somaParcelas - nf.valor_total) > 0.01 && nf.parcelas.length > 0 ? <span className="text-amber-700">Soma das parcelas ({brl(somaParcelas)}) difere do valor da NF ({brl(nf.valor_total)}).</span> : "Prazo de pagamento do cliente. Em representadas 'por parcela', define quando a comissão é liberada."}>
           {nf.parcelas.length > 0 && (
             <Tabela className="mb-4 border-0 shadow-none">

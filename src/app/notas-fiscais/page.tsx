@@ -46,13 +46,11 @@ export default async function NotasFiscaisPage({ searchParams }: { searchParams:
       <Tabela>
         <thead>
           <tr>
-            <Th>Representada</Th>
-            <Th>Cliente</Th>
+            <Th>Representada / cliente</Th>
             <Th>Pedido</Th>
             <Th>NF</Th>
             <Th>Emissão</Th>
             <Th num>Valor total</Th>
-            <Th num>Base</Th>
             <Th num>%</Th>
             <Th num>Prevista</Th>
             <Th num>Apurada</Th>
@@ -66,16 +64,17 @@ export default async function NotasFiscaisPage({ searchParams }: { searchParams:
         <tbody>
           {nfs.map((n) => (
             <tr key={n.id}>
-              <Td>{n.representada.nome}</Td>
-              <Td>{n.cliente.nome}</Td>
-              <Td>{n.pedido ? <Link href={`/pedidos/${n.pedido.id}`} className="text-sky-700 hover:underline">{n.pedido.numero}</Link> : <span className="text-slate-400">{n.venda_direta ? "venda direta" : "sem pedido"}</span>}</Td>
+              <Td>
+                <div className="font-medium">{n.representada.nome}</div>
+                <div className="max-w-56 truncate text-xs text-slate-500" title={n.cliente.nome}>{n.cliente.nome}</div>
+              </Td>
+              <Td className="whitespace-nowrap">{n.pedido ? <Link href={`/pedidos/${n.pedido.id}`} className="text-sky-700 hover:underline">{n.pedido.numero}</Link> : <span className="text-slate-400">{n.venda_direta ? "venda direta" : "sem pedido"}</span>}</Td>
               <Td className="font-medium">
                 <Link href={`/notas-fiscais/${n.id}`} className="text-sky-700 hover:underline">{n.numero}</Link>
                 {n.simulada && <Badge tom="amarelo">simulada</Badge>}
               </Td>
               <Td>{data(n.data_emissao)}</Td>
-              <Td num>{brl(n.valor_total)}</Td>
-              <Td num>{brl(n.base)}</Td>
+              <Td num>{brl(n.valor_total)}{n.base !== n.valor_total && <div className="text-xs text-slate-500">base {brl(n.base)}</div>}</Td>
               <Td num>{pct(n.pct)}{n.pct_override != null && <span className="ml-0.5 text-amber-600">*</span>}</Td>
               <Td num>{brl(n.comissao_prevista)}</Td>
               <Td num className={n.divergencia > 0 ? "text-amber-700" : ""}>{brl(n.comissao_apurada)}</Td>
@@ -88,15 +87,14 @@ export default async function NotasFiscaisPage({ searchParams }: { searchParams:
           ))}
           {nfs.length === 0 && (
             <tr>
-              <Td colSpan={15} className="text-center text-slate-500">Nenhuma NF neste filtro.</Td>
+              <Td colSpan={13} className="text-center text-slate-500">Nenhuma NF neste filtro.</Td>
             </tr>
           )}
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 font-semibold">
-            <Td colSpan={5}>Total ({nfs.length})</Td>
+            <Td colSpan={4}>Total ({nfs.length})</Td>
             <Td num>{brl(soma((n) => n.valor_total))}</Td>
-            <Td num>{brl(soma((n) => n.base))}</Td>
             <Td />
             <Td num>{brl(soma((n) => n.comissao_prevista))}</Td>
             <Td num>{brl(soma((n) => n.comissao_apurada))}</Td>

@@ -4,7 +4,7 @@ const fmtBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BR
 const fmtNum = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
-export const brl = (v: number | null | undefined) => (v == null ? "—" : fmtBRL.format(v));
+export const brl = (v: number | null | undefined) => (v == null ? "—" : fmtBRL.format(Math.abs(v) < 0.005 ? 0 : v));
 export const num = (v: number | null | undefined) => (v == null ? "—" : fmtNum.format(v));
 export const inteiro = (v: number | null | undefined) => (v == null ? "—" : fmtInt.format(v));
 

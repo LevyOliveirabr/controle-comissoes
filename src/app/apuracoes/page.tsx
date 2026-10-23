@@ -21,8 +21,7 @@ export default async function ApuracoesPage({ searchParams }: { searchParams: Pr
         <thead>
           <tr>
             <Th>Mês ref.</Th>
-            <Th>Representada</Th>
-            <Th>Cliente</Th>
+            <Th>Representada / cliente</Th>
             <Th>NF</Th>
             <Th>Parcela</Th>
             <Th>Pgto representada</Th>
@@ -38,8 +37,10 @@ export default async function ApuracoesPage({ searchParams }: { searchParams: Pr
           {aps.map((a) => (
             <tr key={a.id}>
               <Td><Link href={`/apuracoes/${a.id}`} className="text-sky-700 hover:underline">{a.referencia ?? mesCurto(a.mes_referencia)}</Link></Td>
-              <Td>{a.representada.nome}</Td>
-              <Td>{a.cliente.nome}</Td>
+              <Td>
+                <div className="font-medium">{a.representada.nome}</div>
+                <div className="max-w-56 truncate text-xs text-slate-500" title={a.cliente.nome}>{a.cliente.nome}</div>
+              </Td>
               <Td><Link href={`/notas-fiscais/${a.nf.id}`} className="text-sky-700 hover:underline">{a.nf.numero}</Link></Td>
               <Td>{a.parcela ? a.parcela.numero : "—"}</Td>
               <Td>{data(a.data_pgto_representada)}</Td>
@@ -53,13 +54,13 @@ export default async function ApuracoesPage({ searchParams }: { searchParams: Pr
           ))}
           {aps.length === 0 && (
             <tr>
-              <Td colSpan={12} className="text-center text-slate-500">Nenhuma apuração.</Td>
+              <Td colSpan={11} className="text-center text-slate-500">Nenhuma apuração.</Td>
             </tr>
           )}
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 font-semibold">
-            <Td colSpan={6}>Total ({aps.length})</Td>
+            <Td colSpan={5}>Total ({aps.length})</Td>
             <Td num>{brl(soma((a) => a.base))}</Td>
             <Td />
             <Td num>{brl(soma((a) => a.valor_apurado))}</Td>

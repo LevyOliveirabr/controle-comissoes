@@ -89,7 +89,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <Card titulo={`Quando o dinheiro deve cair — próximos 12 meses (mês base ${mesCurto(matriz.mes_base)})`} rodape="Datas esperadas calculadas pelo ciclo de cada representada (dias até a apuração + prazo de pagamento). 'Vencido' é o que já deveria ter caído.">
         <div className="-m-5 overflow-x-auto">
-          <table className="w-full min-w-max text-left text-sm">
+          <table className="w-full whitespace-nowrap text-left text-sm">
             <thead>
               <tr>
                 <Th>Mês</Th>

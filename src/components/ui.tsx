@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export function Pagina({ titulo, descricao, acoes, children }: { titulo: string; descricao?: string; acoes?: ReactNode; children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-8">
+    <div className="mx-auto w-full max-w-[1680px] px-6 py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{titulo}</h1>
@@ -99,17 +99,17 @@ export function BotaoLink({ href, children, variante = "primario" }: { href: str
 export function Tabela({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div className={`overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
-      <table className="w-full min-w-max text-left text-sm">{children}</table>
+      <table className="w-full text-left text-sm">{children}</table>
     </div>
   );
 }
 
 export function Th({ children, num = false, className = "" }: { children?: ReactNode; num?: boolean; className?: string }) {
-  return <th className={`whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 ${num ? "text-right" : ""} ${className}`}>{children}</th>;
+  return <th className={`whitespace-nowrap border-b border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 ${num ? "text-right" : ""} ${className}`}>{children}</th>;
 }
 
 export function Td({ children, num = false, className = "", colSpan }: { children?: ReactNode; num?: boolean; className?: string; colSpan?: number }) {
-  return <td colSpan={colSpan} className={`border-b border-slate-100 px-3 py-2 align-top text-slate-700 ${num ? "text-right tabular-nums" : ""} ${className}`}>{children}</td>;
+  return <td colSpan={colSpan} className={`border-b border-slate-100 px-2.5 py-2 align-top text-slate-700 ${num ? "whitespace-nowrap text-right tabular-nums" : ""} ${className}`}>{children}</td>;
 }
 
 export function Vazio({ children }: { children: ReactNode }) {

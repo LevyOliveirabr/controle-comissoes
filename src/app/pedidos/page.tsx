@@ -56,8 +56,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
       <Tabela>
         <thead>
           <tr>
-            <Th>Representada</Th>
-            <Th>Cliente</Th>
+            <Th>Representada / cliente</Th>
             <Th>Pedido</Th>
             <Th>Data</Th>
             <Th>Comercial</Th>
@@ -73,8 +72,10 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
         <tbody>
           {pedidos.map((p) => (
             <tr key={p.id} className={p.ativo ? "" : "text-slate-400"}>
-              <Td>{p.representada.nome}</Td>
-              <Td>{p.cliente.nome}</Td>
+              <Td>
+                <div className="font-medium">{p.representada.nome}</div>
+                <div className="max-w-56 truncate text-xs text-slate-500" title={p.cliente.nome}>{p.cliente.nome}</div>
+              </Td>
               <Td className="font-medium">
                 <Link href={`/pedidos/${p.id}`} className="text-sky-700 hover:underline">{p.numero}</Link>
                 {p.usa_itens && <span className="ml-1 text-xs text-slate-400">({p.itens.length} itens)</span>}
@@ -92,13 +93,13 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
           ))}
           {pedidos.length === 0 && (
             <tr>
-              <Td colSpan={12} className="text-center text-slate-500">Nenhum pedido neste filtro.</Td>
+              <Td colSpan={11} className="text-center text-slate-500">Nenhum pedido neste filtro.</Td>
             </tr>
           )}
         </tbody>
         <tfoot>
           <tr className="bg-slate-50 font-semibold">
-            <Td colSpan={6}>Total ({pedidos.length})</Td>
+            <Td colSpan={5}>Total ({pedidos.length})</Td>
             <Td num>{brl(soma((p) => p.valor_total))}</Td>
             <Td />
             <Td num>{brl(soma((p) => p.ja_faturado))}</Td>

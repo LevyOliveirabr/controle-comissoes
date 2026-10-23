@@ -42,7 +42,7 @@ export function Navegacao() {
   const pathname = usePathname();
   const ativo = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-200">
+    <aside className="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-200">
       <div className="px-5 py-5">
         <div className="text-base font-semibold text-white">Vice Versa</div>
         <div className="text-xs text-slate-400">Controle de comissões</div>
