@@ -43,9 +43,12 @@ Postgres local sem Docker (Debian/Ubuntu): `sudo apt install postgresql`, depois
 ## Supabase
 
 1. Crie um projeto (região `sa-east-1`).
-2. Migrações: `supabase link --project-ref <ref>` e `supabase db push`, **ou** `DATABASE_URL_DIRECT=<string de conexão direta, porta 5432> npm run db:migrate`.
-3. No app use a string do **Transaction pooler** (porta 6543) em `DATABASE_URL`. A conexão já usa `prepare: false`, exigido pelo pooler.
-4. RLS está ligado em todas as tabelas; a policy libera tudo para o role `authenticated` (criada só se o role existir). O MVP acessa o banco apenas pelo servidor (Server Actions / Server Components) — nada é exposto ao navegador.
+2. Crie o papel da aplicação no SQL Editor (a senha fica só no Supabase e nas variáveis da Vercel): `create role app_comissoes login password '<senha-forte>';`. O usuário `postgres` do Supabase só tem a senha trocada pelo painel e não deve ser usado pela aplicação.
+3. Migrações: `supabase link --project-ref <ref>` e `supabase db push`, **ou** `DATABASE_URL_DIRECT=<string de conexão direta, porta 5432> npm run db:migrate`. A migração `20261023010000_papel_aplicacao.sql` dá ao `app_comissoes` as permissões e as policies de RLS (só roda se o papel existir).
+4. No app use a string do **Transaction pooler** (porta 6543) em `DATABASE_URL`: `postgresql://app_comissoes.<ref>:<senha>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres`. A conexão já usa `prepare: false`, exigido pelo pooler.
+5. RLS está ligado em todas as tabelas; as policies liberam tudo para os roles `authenticated` e `app_comissoes` (criadas só se o role existir). O MVP acessa o banco apenas pelo servidor (Server Actions / Server Components) — nada é exposto ao navegador.
+
+Ambiente publicado: projeto Supabase `controle-comissoes` (ref `eaklfhmwsfnygdezqein`, `sa-east-1`), com as duas migrações aplicadas e a planilha importada em 23/10/2026 (todos os totais conferem).
 
 ## Deploy na Vercel
 
