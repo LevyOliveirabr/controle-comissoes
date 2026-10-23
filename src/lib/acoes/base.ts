@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import type { Sql } from "postgres";
-import { sql } from "../db";
+import { emTransacao, sql } from "../db";
 
 export const esquemas = {
   uuid: z.uuid(),
@@ -37,10 +37,10 @@ export function validar<T>(schema: z.ZodType<T>, valor: unknown): T {
  * auditoria (`current_setting('app.usuario')`).
  */
 export async function transacaoComo<T>(usuario: string, fn: (tx: Sql) => Promise<T>, db: Sql = sql()): Promise<T> {
-  return db.begin(async (tx) => {
+  return emTransacao(db, async (tx) => {
     await tx`select set_config('app.usuario', ${usuario}, true)`;
-    return fn(tx as unknown as Sql);
-  }) as Promise<T>;
+    return fn(tx);
+  });
 }
 
 /** Transforma erros de banco (unique, check, triggers) em mensagens amigáveis. */

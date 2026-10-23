@@ -7,7 +7,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Sql } from "postgres";
-import { criarConexao } from "@/lib/db";
+import { criarConexao, emTransacao } from "@/lib/db";
 import { gravarDados } from "@/lib/importador/gravar";
 import type { PlanilhaLida } from "@/lib/importador/ler-planilha";
 import type { Dados } from "@/lib/motor/tipos";
@@ -36,7 +36,7 @@ async function aplicarMigracoes(db: Sql) {
   for (const arquivo of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
     if (aplicadas.has(arquivo)) continue;
     const conteudo = readFileSync(join(dir, arquivo), "utf8");
-    await db.begin(async (tx) => {
+    await emTransacao(db, async (tx) => {
       await tx.unsafe(conteudo);
       await tx`insert into _migracoes(nome) values (${arquivo})`;
     });

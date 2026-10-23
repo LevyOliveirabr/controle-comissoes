@@ -34,3 +34,28 @@ export function sql(): Sql {
   }
   return globalThis.__sql;
 }
+
+/**
+ * Transação explícita numa conexão reservada (BEGIN/COMMIT/ROLLBACK).
+ *
+ * Substitui `sql.begin`: com `max_pipeline: 0` o postgres.js nunca chama o
+ * `onexecute` que `begin` usa para marcar a conexão como reservada, e todo
+ * `begin` falha com UNSAFE_TRANSACTION. `reserve()` não depende disso.
+ * `fn` recebe um `Sql` com todos os helpers (template, `tx(tabela)`, `unsafe`).
+ */
+export async function emTransacao<T>(db: Sql, fn: (tx: Sql) => Promise<T>): Promise<T> {
+  const c = await db.reserve();
+  try {
+    await c`begin`;
+    try {
+      const r = await fn(c as unknown as Sql);
+      await c`commit`;
+      return r;
+    } catch (e) {
+      await c`rollback`.catch(() => {});
+      throw e;
+    }
+  } finally {
+    c.release();
+  }
+}

@@ -11,6 +11,7 @@ import "dotenv/config";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
+import { emTransacao } from "../src/lib/db";
 
 const url = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL;
 if (!url) {
@@ -35,7 +36,7 @@ async function main() {
     if (aplicadas.has(arquivo)) continue;
     const conteudo = readFileSync(join(dir, arquivo), "utf8");
     console.log(`Aplicando ${arquivo}...`);
-    await sql.begin(async (tx) => {
+    await emTransacao(sql, async (tx) => {
       await tx.unsafe(conteudo);
       await tx`insert into _migracoes(nome) values (${arquivo})`;
     });

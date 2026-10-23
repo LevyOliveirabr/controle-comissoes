@@ -4,6 +4,7 @@
  * testes de integração.
  */
 import type { Sql } from "postgres";
+import { emTransacao } from "../db";
 import type { Dados } from "../motor/tipos";
 
 export const TABELAS_DE_DADOS = ["apuracao", "nfse_comissao", "parcela", "nf_item", "nf_venda", "pedido_item", "pedido", "cliente", "representada"];
@@ -25,7 +26,7 @@ export async function gravarDados(db: Sql, d: Dados, opcoes: OpcoesGravacao = {}
     return u;
   };
 
-  await db.begin(async (tx) => {
+  await emTransacao(db, async (tx) => {
     await tx`select set_config('app.usuario', ${opcoes.usuario ?? "import:planilha"}, true)`;
     if (opcoes.limpar) {
       for (const t of TABELAS_DE_DADOS) await tx.unsafe(`delete from ${t}`);

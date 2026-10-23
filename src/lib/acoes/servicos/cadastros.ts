@@ -87,6 +87,9 @@ export async function buscarRepresentada(entrada: z.input<typeof esquemaBuscaRep
 
   const selecionadas = texto?.trim() ? classificar(todas, (r) => r.nome, texto).filter((p) => p.pontos >= 0.4).map((p) => p.item) : todas;
   return {
+    mensagem: selecionadas.length
+      ? `${selecionadas.length} representada(s)${texto?.trim() ? ` para "${texto.trim()}"` : ""}: ${selecionadas.map((r) => `${r.nome} (${(r.pct_padrao * 100).toLocaleString("pt-BR")}%)`).join(", ")}.`
+      : `Nenhuma representada parecida com "${texto}".`,
     total: selecionadas.length,
     representadas: selecionadas.map((r) => ({
       id: r.id,
@@ -122,6 +125,9 @@ export async function buscarCliente(entrada: z.input<typeof esquemaBuscaCliente>
     where situacao_comercial in ('firme', 'previsao') group by cliente_id`) as unknown as { cliente_id: string; n: number }[];
   const selecionados = texto?.trim() ? classificar(lista, (c) => c.nome, texto).filter((p) => p.pontos >= 0.4).map((p) => p.item) : lista;
   return {
+    mensagem: selecionados.length
+      ? `${selecionados.length} cliente(s)${texto?.trim() ? ` para "${texto.trim()}"` : ""}${rep ? ` na ${rep.nome}` : ""}: ${selecionados.map((c) => `${c.nome} (${c.representada_nome})`).join(", ")}.`
+      : `Nenhum cliente parecido com "${texto}"${rep ? ` na ${rep.nome}` : ""}.`,
     total: selecionados.length,
     representada: rep ? { id: rep.id, nome: rep.nome } : null,
     clientes: selecionados.map((c) => ({
@@ -159,6 +165,7 @@ export async function criarCliente(entrada: z.input<typeof esquemaCriarCliente>,
       classificar(existentes, (c) => c.nome, d.nome).find((p) => p.pontos >= 0.95)?.item;
     if (igual) {
       return {
+        mensagem: `Já existe o cliente "${igual.nome}" na ${rep.nome}; nada foi criado.`,
         criado: false,
         aviso: `Já existe o cliente "${igual.nome}" na ${rep.nome}; nada foi criado.`,
         cliente: { id: igual.id, nome: igual.nome, cnpj: igual.cnpj, representada: { id: rep.id, nome: rep.nome } },
@@ -172,6 +179,7 @@ export async function criarCliente(entrada: z.input<typeof esquemaCriarCliente>,
       observacoes: d.observacoes?.trim() || null,
     })} returning id, nome, cnpj`;
     return {
+      mensagem: `Cliente "${novo.nome}" cadastrado na ${rep.nome}.`,
       criado: true,
       aviso: null,
       cliente: { id: novo.id as string, nome: novo.nome as string, cnpj: novo.cnpj as string | null, representada: { id: rep.id, nome: rep.nome } },
