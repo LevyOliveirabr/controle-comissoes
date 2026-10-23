@@ -23,7 +23,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <FiltroGlobal filtro={filtro} representadas={r.dados.representadas} clientes={r.dados.clientes} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Indicador rotulo="Comissão a receber (firme)" valor={brl(funil.a_receber_firme)} tom="info" detalhe="Estágios 2 a 5, nota a nota" />
+        <Indicador
+          rotulo="Comissão a receber (firme)"
+          valor={brl(funil.a_receber_firme)}
+          tom="info"
+          detalhe={
+            Math.abs(funil.a_receber_firme - funil.a_receber_firme_planilha) >= 0.005
+              ? `Estágios 2 a 5, nota a nota — pelo critério da planilha (residual): ${brl(funil.a_receber_firme_planilha)}`
+              : "Estágios 2 a 5, nota a nota"
+          }
+        />
         <Indicador rotulo="Comissão já recebida" valor={brl(funil.ja_recebida)} tom="bom" detalhe="Com crédito confirmado em conta" />
         <Indicador rotulo="Em previsão" valor={brl(funil.em_previsao.comissao)} detalhe={`${pct(funil.em_previsao.pct_da_firme, 0)} da carteira firme — fora do total`} />
         <Indicador rotulo="Total da carteira firme" valor={brl(funil.total_firme)} detalhe={`Sobre ${brl(funil.total_base_firme)} em vendas`} />

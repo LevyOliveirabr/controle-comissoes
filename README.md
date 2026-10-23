@@ -46,20 +46,32 @@ Postgres local sem Docker (Debian/Ubuntu): `sudo apt install postgresql`, depois
 ## Supabase
 
 1. Crie um projeto (região `sa-east-1`).
-2. Migrações: `supabase link --project-ref <ref>` e `supabase db push`, **ou** `DATABASE_URL_DIRECT=<string de conexão direta, porta 5432> npm run db:migrate`.
-3. No app use a string do **Transaction pooler** (porta 6543) em `DATABASE_URL`. A conexão já usa `prepare: false`, exigido pelo pooler.
-4. RLS está ligado em todas as tabelas; a policy libera tudo para o role `authenticated` (criada só se o role existir). O MVP acessa o banco apenas pelo servidor (Server Actions / Server Components) — nada é exposto ao navegador.
+2. Crie o papel da aplicação no SQL Editor (a senha fica só no Supabase e nas variáveis da Vercel): `create role app_comissoes login password '<senha-forte>';`. O usuário `postgres` do Supabase só tem a senha trocada pelo painel e não deve ser usado pela aplicação.
+3. Migrações: `supabase link --project-ref <ref>` e `supabase db push`, **ou** `DATABASE_URL_DIRECT=<string de conexão direta, porta 5432> npm run db:migrate`. A migração `20261023010000_papel_aplicacao.sql` dá ao `app_comissoes` as permissões e as policies de RLS (só roda se o papel existir).
+4. No app use a string do **Transaction pooler** (porta 6543) em `DATABASE_URL`: `postgresql://app_comissoes.<ref>:<senha>@aws-1-sa-east-1.pooler.supabase.com:6543/postgres`. A conexão já usa `prepare: false`, exigido pelo pooler.
+5. RLS está ligado em todas as tabelas; as policies liberam tudo para os roles `authenticated` e `app_comissoes` (criadas só se o role existir). O MVP acessa o banco apenas pelo servidor (Server Actions / Server Components) — nada é exposto ao navegador.
+
+Ambiente publicado: projeto Supabase `controle-comissoes` (ref `eaklfhmwsfnygdezqein`, `sa-east-1`), com as duas migrações aplicadas e a planilha importada em 23/10/2026 (todos os totais conferem).
+
+## Sistema publicado
+
+- **URL:** https://controle-comissoes-indol.vercel.app (Vercel, projeto `controle-comissoes`, time `levyoliveirabrs-projects`, funções em `gru1`). O navegador pede usuário (qualquer nome) e a senha definida em `APP_SENHA`.
+- Deploy automático a cada push em `main`. Variáveis configuradas: `DATABASE_URL`, `APP_SENHA`, `APP_USUARIO` (Production e Preview).
+- Vercel Authentication está ativa nas URLs de preview (`*-levyoliveirabrs-projects.vercel.app`); o domínio de produção é protegido pela `APP_SENHA`.
 
 ## Deploy na Vercel
 
-1. Importe o repositório na Vercel (framework Next.js, sem configuração extra).
-2. Variáveis de ambiente: `DATABASE_URL` (pooler do Supabase) e, opcionalmente, `APP_USUARIO` (nome gravado na auditoria enquanto não há login).
-3. Como o MVP ainda não tem autenticação, ative **Deployment Protection** (Vercel Authentication ou senha) no projeto até o login com Supabase Auth entrar.
+1. Importe o repositório na Vercel (framework Next.js, sem configuração extra; branch de produção `main`).
+2. Variáveis de ambiente (Production e Preview):
+   - `DATABASE_URL` — string do Transaction pooler do Supabase com o papel `app_comissoes` (ver seção Supabase).
+   - `APP_SENHA` — senha de acesso ao sistema. Com ela definida, `src/proxy.ts` exige HTTP Basic Auth (qualquer usuário + essa senha) em todas as páginas. É a proteção do MVP enquanto não há login com Supabase Auth; sem a variável (dev local) nada é exigido.
+   - `APP_USUARIO` (opcional) — nome gravado na auditoria.
+3. Ative também **Deployment Protection → Vercel Authentication** no projeto. No plano Hobby ela só cobre as URLs de preview; o domínio de produção fica coberto pela `APP_SENHA`.
 4. Para o bot: `MCP_TOKEN` (ver "Conectar ao bot"). A rota `/api/mcp` não passa pelo Basic Auth do `src/proxy.ts`; ela só aceita esse token.
 
 ## Conectar ao bot
 
-O sistema expõe um **servidor MCP remoto** (Streamable HTTP) em `https://<dominio>/api/mcp`. Qualquer assistente que fale MCP (Cursor, Grok, Claude, etc.) pode usá-lo: o Levy manda a frase em linguagem natural e o modelo chama as ferramentas, que gravam no banco com `usuario = "bot"` na auditoria.
+O sistema expõe um **servidor MCP remoto** (Streamable HTTP) em `https://controle-comissoes-indol.vercel.app/api/mcp`. Qualquer assistente que fale MCP (Cursor, Grok, Claude, etc.) pode usá-lo: o Levy manda a frase em linguagem natural e o modelo chama as ferramentas, que gravam no banco com `usuario = "bot"` na auditoria.
 
 ### 1. Gerar o token e colocar na Vercel
 
@@ -77,19 +89,19 @@ Na Vercel: **Project → Settings → Environment Variables → Add** `MCP_TOKEN
 {
   "mcpServers": {
     "comissoes": {
-      "url": "https://<dominio>/api/mcp",
+      "url": "https://controle-comissoes-indol.vercel.app/api/mcp",
       "headers": { "Authorization": "Bearer <MCP_TOKEN>" }
     }
   }
 }
 ```
 
-**Grok / outros clientes com "Connectors" ou "Remote MCP"** — adicione um servidor remoto com a URL `https://<dominio>/api/mcp`, tipo *Streamable HTTP*, e o cabeçalho `Authorization: Bearer <MCP_TOKEN>`. Se o cliente só tiver campo de "API key"/token Bearer, cole o `MCP_TOKEN` nele.
+**Grok / outros clientes com "Connectors" ou "Remote MCP"** — adicione um servidor remoto com a URL `https://controle-comissoes-indol.vercel.app/api/mcp`, tipo *Streamable HTTP*, e o cabeçalho `Authorization: Bearer <MCP_TOKEN>`. Se o cliente só tiver campo de "API key"/token Bearer, cole o `MCP_TOKEN` nele.
 
 Teste rápido no terminal (deve listar as 14 ferramentas):
 
 ```bash
-curl -s https://<dominio>/api/mcp -H "Authorization: Bearer <MCP_TOKEN>" \
+curl -s https://controle-comissoes-indol.vercel.app/api/mcp -H "Authorization: Bearer <MCP_TOKEN>" \
   -H "content-type: application/json" -H "accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
