@@ -6,9 +6,8 @@ import { arredondar } from "../../motor/numeros";
 import { validar, z } from "../base";
 import { resolverCliente, resolverRepresentada } from "./cadastros";
 import { conexao, hojeDe, type Contexto } from "./contexto";
-import { calcularBanco } from "./motor-db";
+import { brl, calcularBanco } from "./motor-db";
 
-const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 const dataBr = (iso: string | null | undefined) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "sem data");
 
 const esquemaFiltro = z.object({
@@ -50,12 +49,12 @@ export async function consultarResumo(entrada: z.input<typeof esquemaFiltro>, ct
     hoje: r.hoje,
     filtro: { representada: rep?.nome ?? null, cliente: cli?.nome ?? null },
     cards: {
-      ja_recebida: f.ja_recebida,
-      a_receber_firme: f.a_receber_firme,
-      a_receber_firme_criterio_planilha: f.a_receber_firme_planilha,
-      em_previsao: f.em_previsao,
-      vencido: vencido?.total_firme ?? 0,
-      total_carteira_firme: f.total_firme,
+      ja_recebida: arredondar(f.ja_recebida),
+      a_receber_firme: arredondar(f.a_receber_firme),
+      a_receber_firme_criterio_planilha: arredondar(f.a_receber_firme_planilha),
+      em_previsao: { ...f.em_previsao, comissao: arredondar(f.em_previsao.comissao) },
+      vencido: arredondar(vencido?.total_firme ?? 0),
+      total_carteira_firme: arredondar(f.total_firme),
     },
     funil: f.estagios.map((e) => ({ estagio: e.numero, nome: e.nome, base: arredondar(e.base), comissao: arredondar(e.comissao), pct_do_total: arredondar(e.pct_do_total * 100, 1), proximo_passo: e.proximo_passo })),
     proximos_meses: proximos.map((l) => ({ mes: l.mes ? rotuloMes(l.mes) : l.rotulo, firme: arredondar(l.total_firme), previsao: arredondar(l.em_previsao) })),
@@ -122,7 +121,7 @@ export async function consultarPendencias(entrada: z.input<typeof esquemaPendenc
   const escopo = [rep && `da ${rep.nome}`, cli && `para ${cli.nome}`].filter(Boolean).join(" ");
   return {
     mensagem:
-      `Pendências ${escopo} em ${dataBr(hoje)}: vencido ${brl(soma(vencidos))} (${vencidos.length} item/ns), atrasado neste mês ${brl(soma(atrasados))} (${atrasados.length}), próximos ${meses} meses ${brl(soma(proximos))} (${proximos.length}), depois ${brl(soma(depois))}, sem data ${brl(soma(semData))}. ` +
+      `Pendências${escopo ? ` ${escopo}` : ""} em ${dataBr(hoje)}: vencido ${brl(soma(vencidos))} (${vencidos.length} item/ns), atrasado neste mês ${brl(soma(atrasados))} (${atrasados.length}), próximos ${meses} meses ${brl(soma(proximos))} (${proximos.length}), depois ${brl(soma(depois))}, sem data ${brl(soma(semData))}. ` +
       (acoes.length ? `Ações sugeridas: ${acoes.slice(0, 8).join(" ")}` : "Nada atrasado."),
     hoje,
     filtro: { representada: rep?.nome ?? null, cliente: cli?.nome ?? null },

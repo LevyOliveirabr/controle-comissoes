@@ -27,3 +27,8 @@ export function rotuloMesLongo(iso: string): string {
 export function primeiroDiaDoMes(valor: string): string {
   return `${valor.slice(0, 7)}-01`;
 }
+
+/** Formata em reais com exatamente duas casas (ex.: 'R$ 83.107,88'). */
+export function brl(valor: number): string {
+  return `R$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}

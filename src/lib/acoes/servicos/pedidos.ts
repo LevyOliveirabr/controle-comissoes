@@ -9,7 +9,7 @@ import { classificar, normalizar } from "./busca";
 import { criarCliente, resolverCliente, resolverRepresentada } from "./cadastros";
 import { conexao, executar, hojeDe, type Contexto } from "./contexto";
 import { ErroAmbiguo, ErroNaoEncontrado, ErroValidacao, type Opcao } from "./erros";
-import { calcularBanco, fracao, MESES_LONGO, rotuloMesLongo } from "./motor-db";
+import { brl, calcularBanco, fracao, MESES_LONGO, rotuloMesLongo } from "./motor-db";
 
 const mesAno = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, "use AAAA-MM-DD (ou AAAA-MM)");
 
@@ -18,7 +18,7 @@ type PedidoComNomes = Pedido & { representada_nome: string; cliente_nome: string
 const opcaoPedido = (p: PedidoComNomes): Opcao => ({
   id: p.id,
   rotulo: p.numero,
-  detalhe: `${p.representada_nome} · ${p.cliente_nome} · R$ ${p.valor_total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} · ${p.situacao_comercial}`,
+  detalhe: `${p.representada_nome} · ${p.cliente_nome} · ${brl(p.valor_total)} · ${p.situacao_comercial}`,
 });
 
 async function listarPedidos(db: Sql, filtro: { representada_id?: string | null; cliente_id?: string | null; abertos?: boolean }) {
@@ -128,7 +128,7 @@ export async function criarPedido(entrada: EntradaCriarPedido, ctx: Contexto) {
       const repetido = existentes.find((p) => normalizar(p.numero) === normalizar(numero!));
       if (repetido) {
         throw new ErroValidacao(
-          `Já existe o pedido "${repetido.numero}" da ${rep.nome} para ${cliente.nome} (R$ ${repetido.valor_total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}, ${repetido.situacao_comercial}). Use atualizar_pedido ou informe outro número.`,
+          `Já existe o pedido "${repetido.numero}" da ${rep.nome} para ${cliente.nome} (${brl(repetido.valor_total)}, ${repetido.situacao_comercial}). Use atualizar_pedido ou informe outro número.`,
         );
       }
     }
@@ -154,8 +154,8 @@ export async function criarPedido(entrada: EntradaCriarPedido, ctx: Contexto) {
     const situacao = d.situacao ?? "firme";
     return {
       mensagem:
-        `Pedido "${numero}" criado: ${rep.nome} → ${cliente.nome}, R$ ${d.valor_total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (${situacao === "previsao" ? "previsão" : "firme"}), ` +
-        `comissão prevista R$ ${comissao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} (${(pctEfetivo * 100).toLocaleString("pt-BR")}%)` +
+        `Pedido "${numero}" criado: ${rep.nome} → ${cliente.nome}, ${brl(d.valor_total)} (${situacao === "previsao" ? "previsão" : "firme"}), ` +
+        `comissão prevista ${brl(comissao)} (${(pctEfetivo * 100).toLocaleString("pt-BR")}%)` +
         (entrega ? `, entrega ${entrega}` : "") +
         (clienteCriado ? `. Cliente "${cliente.nome}" cadastrado agora na ${rep.nome}.` : "."),
       pedido: {
@@ -200,7 +200,6 @@ export async function atualizarPedido(entrada: EntradaAtualizarPedido, ctx: Cont
     const p = await resolverPedido(tx, d, false);
     const mudancas: Record<string, unknown> = {};
     const descricao: string[] = [];
-    const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 
     if (d.situacao && d.situacao !== p.situacao_comercial) {
       mudancas.situacao_comercial = d.situacao;
@@ -310,7 +309,7 @@ export async function listarPedidosEmAberto(entrada: z.input<typeof esquemaLista
   const totalSaldo = arredondar(lista.reduce((s, p) => s + p.saldo_a_faturar, 0));
   const totalComissao = arredondar(lista.reduce((s, p) => s + p.comissao_sobre_saldo, 0));
   return {
-    mensagem: `${lista.length} pedido(s) em aberto${rep ? ` da ${rep.nome}` : ""}${cli ? ` para ${cli.nome}` : ""}: saldo a faturar R$ ${totalSaldo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}, comissão sobre o saldo R$ ${totalComissao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`,
+    mensagem: `${lista.length} pedido(s) em aberto${rep ? ` da ${rep.nome}` : ""}${cli ? ` para ${cli.nome}` : ""}: saldo a faturar ${brl(totalSaldo)}, comissão sobre o saldo ${brl(totalComissao)}.`,
     hoje: hojeDe(ctx),
     total: lista.length,
     saldo_a_faturar: totalSaldo,

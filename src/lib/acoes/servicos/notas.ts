@@ -11,10 +11,9 @@ import { classificar, normalizar } from "./busca";
 import { resolverCliente, resolverRepresentada } from "./cadastros";
 import { conexao, executar, hojeDe, type Contexto } from "./contexto";
 import { ErroAmbiguo, ErroNaoEncontrado, ErroValidacao, type Opcao } from "./erros";
-import { calcularBanco, fracao } from "./motor-db";
+import { brl, calcularBanco, fracao } from "./motor-db";
 import { resolverPedido } from "./pedidos";
 
-const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 const dataBr = (iso: string | null | undefined) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—");
 
 export type NfComNomes = NfVenda & { representada_nome: string; cliente_nome: string; pedido_numero: string | null };

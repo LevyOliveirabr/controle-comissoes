@@ -11,10 +11,9 @@ import { normalizar } from "./busca";
 import { resolverRepresentada } from "./cadastros";
 import { executar, hojeDe, type Contexto } from "./contexto";
 import { ErroAmbiguo, ErroNaoEncontrado, ErroValidacao, type Opcao } from "./erros";
-import { calcularBanco, fracao, primeiroDiaDoMes } from "./motor-db";
+import { brl, calcularBanco, fracao, primeiroDiaDoMes } from "./motor-db";
 import { resolverNf } from "./notas";
 
-const brl = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 const dataBr = (iso: string | null | undefined) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—");
 const mesAno = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/, "use AAAA-MM");
 

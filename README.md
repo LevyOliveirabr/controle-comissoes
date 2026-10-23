@@ -12,9 +12,12 @@ src/lib/motor/            Motor de cálculo puro (sem banco, sem relógio): calc
 src/lib/importador/       Leitor da planilha original (ExcelJS)
 src/lib/db.ts, dados.ts   Conexão Postgres e carga dos dados para o motor
 src/lib/acoes/            Server Actions (validação com zod, transação, auditoria)
+src/lib/acoes/servicos/   Serviços de negócio usados pelo bot: busca tolerante, pedidos, NFs, apuração, NFS-e, consultas
+src/lib/mcp/              Servidor MCP (ferramentas em português, token Bearer) exposto em src/app/api/mcp/route.ts
+src/proxy.ts              Basic Auth do site (APP_SENHA); /api/mcp fica fora dele
 src/app/                  Telas: dashboard, agenda, consolidado, faturamento, pedidos, notas-fiscais, apuracoes, nfse, representadas, clientes, parametros, auditoria
 scripts/                  db-migrate.ts, import-planilha.ts, gerar-fixture.ts
-tests/                    Testes do motor (fixture gerada da planilha)
+tests/                    Motor (fixture da planilha), serviços contra Postgres e MCP ponta a ponta por HTTP
 ```
 
 ## Rodando localmente
@@ -33,7 +36,7 @@ Outros comandos:
 
 | Comando | O que faz |
 | --- | --- |
-| `npm test` | Testes do motor (Vitest) |
+| `npm test` | Vitest: motor, serviços e MCP. Os testes de banco só rodam se `DATABASE_URL_TESTE` apontar para um Postgres **descartável** (ex.: `postgresql://app:app@127.0.0.1:5432/comissoes_teste`); eles aplicam as migrações, apagam tudo e carregam a fixture a cada execução |
 | `npm run typecheck` / `npm run lint` | TypeScript e ESLint |
 | `npm run db:migrate -- --reset` | **Apaga** o schema `public` e reaplica tudo (só dev) |
 | `npx tsx scripts/gerar-fixture.ts <planilha.xlsx>` | Regera `tests/fixtures/planilha.json` |
@@ -52,6 +55,69 @@ Postgres local sem Docker (Debian/Ubuntu): `sudo apt install postgresql`, depois
 1. Importe o repositório na Vercel (framework Next.js, sem configuração extra).
 2. Variáveis de ambiente: `DATABASE_URL` (pooler do Supabase) e, opcionalmente, `APP_USUARIO` (nome gravado na auditoria enquanto não há login).
 3. Como o MVP ainda não tem autenticação, ative **Deployment Protection** (Vercel Authentication ou senha) no projeto até o login com Supabase Auth entrar.
+4. Para o bot: `MCP_TOKEN` (ver "Conectar ao bot"). A rota `/api/mcp` não passa pelo Basic Auth do `src/proxy.ts`; ela só aceita esse token.
+
+## Conectar ao bot
+
+O sistema expõe um **servidor MCP remoto** (Streamable HTTP) em `https://<dominio>/api/mcp`. Qualquer assistente que fale MCP (Cursor, Grok, Claude, etc.) pode usá-lo: o Levy manda a frase em linguagem natural e o modelo chama as ferramentas, que gravam no banco com `usuario = "bot"` na auditoria.
+
+### 1. Gerar o token e colocar na Vercel
+
+```bash
+openssl rand -hex 32        # ou: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Na Vercel: **Project → Settings → Environment Variables → Add** `MCP_TOKEN` = o valor gerado (Production e Preview), depois **Redeploy**. Sem a variável a rota responde `503` (desligada); com token errado, `401`. Para trocar o token basta gerar outro, atualizar a variável e o cliente.
+
+### 2. Registrar o servidor no assistente
+
+**Cursor** — `Settings → MCP → Add new global MCP server` (ou edite `~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "comissoes": {
+      "url": "https://<dominio>/api/mcp",
+      "headers": { "Authorization": "Bearer <MCP_TOKEN>" }
+    }
+  }
+}
+```
+
+**Grok / outros clientes com "Connectors" ou "Remote MCP"** — adicione um servidor remoto com a URL `https://<dominio>/api/mcp`, tipo *Streamable HTTP*, e o cabeçalho `Authorization: Bearer <MCP_TOKEN>`. Se o cliente só tiver campo de "API key"/token Bearer, cole o `MCP_TOKEN` nele.
+
+Teste rápido no terminal (deve listar as 14 ferramentas):
+
+```bash
+curl -s https://<dominio>/api/mcp -H "Authorization: Bearer <MCP_TOKEN>" \
+  -H "content-type: application/json" -H "accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### 3. Frases que funcionam
+
+| Frase | Ferramenta |
+| --- | --- |
+| "Tirei um pedido da Signify pra Remo, 85 mil, entrega em dezembro" | `criar_pedido` |
+| "A previsão da Signify pra Remo virou pedido firme" | `atualizar_pedido` |
+| "Chegou a NF 925 da VW pra Luz Forte, R$ 10.288,03, 3 parcelas" | `lancar_nf` |
+| "O Alegrete pagou a primeira parcela da NF 1234" | `registrar_parcela_paga` |
+| "A F-Led apurou a parcela 1 da NF 1234 no relatório de dezembro" | `registrar_apuracao` |
+| "Emiti a NFS-e 12 pra F-Led hoje" | `emitir_nfse` |
+| "Recebi a comissão da Signify de outubro, caiu hoje" | `registrar_credito_nfse` |
+| "Como estão as comissões?" / "Quanto tenho a receber da Signify?" | `consultar_resumo` |
+| "O que está atrasado?" / "O que vou receber nos próximos 3 meses?" | `consultar_pendencias` |
+| "Quais pedidos da Signify ainda não foram faturados?" | `listar_pedidos_em_aberto` |
+| "O que a VW ainda não apurou?" | `listar_nfs_sem_apuracao` |
+| "Cadastra o cliente Ferragens Zé na Maxi" | `criar_cliente` / `buscar_cliente` / `buscar_representada` |
+
+Nomes aproximados são aceitos ("Signfy", "Remo", "VW", "Luz Forte"). Quando houver mais de uma opção possível (dois pedidos em aberto do mesmo cliente, dois clientes com "Participações" no nome), a ferramenta devolve as opções e o assistente pergunta em vez de chutar. Datas omitidas valem "hoje" (fuso de Brasília).
+
+### Ferramentas MCP
+
+`buscar_representada`, `buscar_cliente`, `criar_cliente`, `criar_pedido`, `atualizar_pedido`, `lancar_nf`, `registrar_parcela_paga`, `registrar_apuracao`, `emitir_nfse`, `registrar_credito_nfse`, `consultar_resumo`, `consultar_pendencias`, `listar_pedidos_em_aberto`, `listar_nfs_sem_apuracao`. Cada uma devolve uma `mensagem` legível + o objeto completo em `structuredContent`; erros de validação/negócio voltam com `isError` e explicação em português.
+
+Rodando local: `MCP_TOKEN=qualquer-coisa npm run dev` e aponte o cliente para `http://localhost:3000/api/mcp`.
 
 ## Importação da planilha e conferência
 
