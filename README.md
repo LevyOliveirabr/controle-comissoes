@@ -52,9 +52,12 @@ Ambiente publicado: projeto Supabase `controle-comissoes` (ref `eaklfhmwsfnygdez
 
 ## Deploy na Vercel
 
-1. Importe o repositório na Vercel (framework Next.js, sem configuração extra).
-2. Variáveis de ambiente: `DATABASE_URL` (pooler do Supabase) e, opcionalmente, `APP_USUARIO` (nome gravado na auditoria enquanto não há login).
-3. Como o MVP ainda não tem autenticação, ative **Deployment Protection** (Vercel Authentication ou senha) no projeto até o login com Supabase Auth entrar.
+1. Importe o repositório na Vercel (framework Next.js, sem configuração extra; branch de produção `main`).
+2. Variáveis de ambiente (Production e Preview):
+   - `DATABASE_URL` — string do Transaction pooler do Supabase com o papel `app_comissoes` (ver seção Supabase).
+   - `APP_SENHA` — senha de acesso ao sistema. Com ela definida, `src/proxy.ts` exige HTTP Basic Auth (qualquer usuário + essa senha) em todas as páginas. É a proteção do MVP enquanto não há login com Supabase Auth; sem a variável (dev local) nada é exigido.
+   - `APP_USUARIO` (opcional) — nome gravado na auditoria.
+3. Ative também **Deployment Protection → Vercel Authentication** no projeto. No plano Hobby ela só cobre as URLs de preview; o domínio de produção fica coberto pela `APP_SENHA`.
 
 ## Importação da planilha e conferência
 
