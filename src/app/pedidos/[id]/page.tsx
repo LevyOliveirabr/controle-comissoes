@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { BadgeComercial, BadgeFaturamento, BadgeStatusNf } from "@/components/badges";
 import { FormPedido } from "@/components/formularios/pedido";
 import { Mensagens } from "@/components/mensagens";
+import { CadeiaCalculo, Dica } from "@/components/rastreio";
 import { Alerta, Botao, Campo, Card, Descricao, FormExcluir, Input, Pagina, Tabela, Td, Th } from "@/components/ui";
 import { adicionarItemPedido, converterPrevisao, excluirItemPedido, excluirPedido } from "@/lib/acoes/pedidos";
+import { motivoSituacaoPedido } from "@/lib/explicacoes";
 import { brl, data, num, pct } from "@/lib/formato";
 import { obterResultado, type ParametrosBusca } from "@/lib/resultado";
 
@@ -15,6 +17,7 @@ export default async function PedidoPage({ params, searchParams }: { params: Pro
   const p = r.pedidos.find((x) => x.id === id);
   if (!p) notFound();
   const nfs = r.nfs.filter((n) => n.pedido_id === id);
+  const inativo = p.situacao_comercial === "cancelado" || p.situacao_comercial === "convertido";
 
   return (
     <Pagina
@@ -40,13 +43,13 @@ export default async function PedidoPage({ params, searchParams }: { params: Pro
           itens={[
             ["Comercial", <BadgeComercial key="c" situacao={p.situacao_comercial} />],
             ["Faturamento", <BadgeFaturamento key="f" situacao={p.situacao_faturamento} comercial={p.situacao_comercial} />],
-            ["% efetivo", <span key="p">{pct(p.pct_efetivo)} {p.pct_override != null ? <span className="text-xs text-amber-700">(específico do pedido)</span> : <span className="text-xs text-slate-500">(padrão da representada)</span>}</span>],
+            ["% efetivo", <span key="p">{pct(p.pct_efetivo)} {p.pct_override != null ? <span className="text-xs text-amber-700">(específico do pedido)</span> : <span className="text-xs text-slate-500">(padrão da representada)</span>} <Dica chave="pedido:pct" /></span>],
             ["Valor do pedido", brl(p.valor_total) + (p.valor_original != null ? ` (original ${brl(p.valor_original)})` : "")],
             ["Já faturado", `${brl(p.ja_faturado)} (${pct(p.pct_faturado, 0)})`],
-            ["Saldo a faturar", <strong key="s">{brl(p.saldo_a_faturar)}</strong>],
+            ["Saldo a faturar", <span key="s"><strong>{brl(p.saldo_a_faturar)}</strong> <Dica chave="pedido:saldo" /></span>],
             ["Variação de preço", brl(p.variacao_preco)],
-            ["Comissão total", brl(p.comissao_total)],
-            ["Comissão sobre o saldo", brl(p.comissao_saldo)],
+            ["Comissão total", <span key="ct">{brl(p.comissao_total)} <Dica chave="pedido:comissao_total" /></span>],
+            ["Comissão sobre o saldo", <span key="cs">{brl(p.comissao_saldo)} <Dica chave="pedido:comissao_saldo" /></span>],
           ]}
         />
         {Math.abs(p.variacao_preco) > 0.005 && p.ativo && p.saldo_a_faturar === 0 && (
@@ -54,6 +57,65 @@ export default async function PedidoPage({ params, searchParams }: { params: Pro
             <Alerta tom="info">Faturado com diferença de {brl(p.variacao_preco)} em relação ao pedido (dentro da tolerância de {brl(r.dados.parametros.tolerancia_saldo)}). A comissão é calculada sobre as NFs.</Alerta>
           </div>
         )}
+      </Card>
+
+      <Card titulo="Como este valor foi calculado" rodape={<Link href="/ajuda" className="text-sky-700 hover:underline">Entenda os números →</Link>}>
+        <CadeiaCalculo
+          passos={[
+            { rotulo: "Valor do pedido", valor: brl(p.valor_total), nota: p.valor_original != null ? `Valor original ${brl(p.valor_original)}; o valor atual é o que vale para a comissão.` : undefined },
+            {
+              rotulo: "Percentual efetivo",
+              valor: pct(p.pct_efetivo),
+              nota: p.pct_override != null ? "Informado neste pedido (vale acima do % padrão da representada)." : `% padrão cadastrado na ${p.representada.nome} (${pct(p.representada.pct_padrao)}).`,
+            },
+            {
+              rotulo: "Comissão total do pedido",
+              conta: inativo ? "pedido cancelado/convertido" : `${brl(p.valor_total)} × ${pct(p.pct_efetivo)}`,
+              valor: brl(p.comissao_total),
+              nota: inativo ? "Zero: pedidos cancelados ou convertidos não geram comissão." : undefined,
+            },
+            {
+              rotulo: "Já faturado",
+              conta: nfs.length ? `soma de ${nfs.length} ${nfs.length === 1 ? "NF" : "NFs"}` : "nenhuma NF ligada",
+              valor: brl(p.ja_faturado),
+              nota:
+                nfs.length > 0 ? (
+                  <span>
+                    {nfs.map((n, i) => (
+                      <span key={n.id}>
+                        {i > 0 && " + "}
+                        <Link href={`/notas-fiscais/${n.id}`} className="text-sky-700 hover:underline">NF {n.numero}</Link> {brl(n.valor_total)}
+                      </span>
+                    ))}
+                  </span>
+                ) : undefined,
+            },
+            {
+              rotulo: "Saldo a faturar",
+              conta: inativo ? "pedido inativo" : p.usa_itens && p.itens.length > 0 ? "soma do saldo de cada item (qtd a faturar × valor unitário)" : `${brl(p.valor_total)} − ${brl(p.ja_faturado)}`,
+              valor: brl(p.saldo_a_faturar),
+              destaque: true,
+              nota: Math.abs(p.variacao_preco) > 0.005 ? `A diferença de ${brl(p.variacao_preco)} entre pedido, NFs e saldo é variação de preço.` : undefined,
+            },
+            {
+              rotulo: p.situacao_comercial === "previsao" ? "Comissão sobre o saldo (pipeline de previsão)" : "Comissão sobre o saldo (estágio 5 do funil)",
+              conta: `${brl(p.saldo_a_faturar)} × ${pct(p.pct_efetivo)}`,
+              valor: brl(p.comissao_saldo),
+              destaque: true,
+              nota: p.situacao_comercial === "previsao" ? "Fica fora do total firme até o pedido ser convertido." : p.ativo ? "É a parte deste pedido em 'Pedido firme a faturar'. O que já foi faturado passa a ser acompanhado nota a nota, nas NFs acima." : undefined,
+            },
+            {
+              rotulo: "Comissão já apurada nas NFs deste pedido",
+              valor: brl(p.comissao_apurada),
+              nota: "Soma das apurações lançadas para as NFs ligadas a este pedido.",
+            },
+          ]}
+          conclusao={
+            <>
+              <span className="font-semibold">Situação: <BadgeFaturamento situacao={p.situacao_faturamento} comercial={p.situacao_comercial} /></span> — {motivoSituacaoPedido(p, r.dados.parametros.tolerancia_saldo)}
+            </>
+          }
+        />
       </Card>
 
       <Card titulo={`Notas fiscais deste pedido (${nfs.length})`}>

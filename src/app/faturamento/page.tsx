@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { BadgeFaturamento } from "@/components/badges";
 import { FiltroGlobal } from "@/components/filtro-global";
+import { Dica, NumeroLink } from "@/components/rastreio";
 import { Card, Pagina, Tabela, Td, Th } from "@/components/ui";
 import { brl, data, mesCurto, num, pct } from "@/lib/formato";
-import { filtroDaBusca, obterResultado, type ParametrosBusca } from "@/lib/resultado";
+import { filtroDaBusca, obterResultado, queryDoFiltro, type ParametrosBusca } from "@/lib/resultado";
 
 export default async function FaturamentoPage({ searchParams }: { searchParams: Promise<ParametrosBusca> }) {
   const sp = await searchParams;
@@ -12,6 +13,7 @@ export default async function FaturamentoPage({ searchParams }: { searchParams: 
   const f = r.faturamento;
   const pedidos = f.pedidos.filter((p) => p.no_filtro);
   const itens = f.itens_a_faturar.filter((i) => i.pedido.no_filtro);
+  const voltar = `/faturamento${queryDoFiltro(filtro)}`;
 
   return (
     <Pagina titulo="Faturamento" descricao="Situação de faturamento dos pedidos ativos, itens que ainda faltam faturar e vencimentos das duplicatas do cliente por mês.">
@@ -84,14 +86,14 @@ export default async function FaturamentoPage({ searchParams }: { searchParams: 
           )}
         </Card>
 
-        <Card titulo="Vencimentos das duplicatas do cliente" rodape="Visão do fluxo do cliente com a representada. Em representadas 'por parcela' (F-Led) é o que libera a comissão.">
+        <Card titulo="Vencimentos das duplicatas do cliente" rodape="Visão do fluxo do cliente com a representada. Em representadas 'por parcela' (F-Led) é o que libera a comissão. Clique em um valor para ver as parcelas.">
           <Tabela className="border-0 shadow-none">
             <thead>
               <tr>
                 <Th>Mês</Th>
-                <Th num>Parcelas</Th>
-                <Th num>Valor</Th>
-                <Th num>Pago pelo cliente</Th>
+                <Th num><span className="inline-flex items-center gap-1">Parcelas <Dica chave="faturamento:parcelas" alinhar="direita" /></span></Th>
+                <Th num><span className="inline-flex items-center gap-1">Valor <Dica chave="faturamento:valor" alinhar="direita" /></span></Th>
+                <Th num><span className="inline-flex items-center gap-1">Pago pelo cliente <Dica chave="faturamento:pago" alinhar="direita" /></span></Th>
               </tr>
             </thead>
             <tbody>
@@ -99,8 +101,8 @@ export default async function FaturamentoPage({ searchParams }: { searchParams: 
                 <tr key={v.mes}>
                   <Td>{mesCurto(v.mes)}</Td>
                   <Td num>{v.parcelas || <span className="text-slate-300">–</span>}</Td>
-                  <Td num>{v.valor ? brl(v.valor) : <span className="text-slate-300">–</span>}</Td>
-                  <Td num className="text-emerald-700">{v.valor_pago ? brl(v.valor_pago) : <span className="text-slate-300">–</span>}</Td>
+                  <Td num>{v.valor ? <NumeroLink chave={`faturamento:${v.mes}:valor`} filtro={filtro} voltar={voltar}>{brl(v.valor)}</NumeroLink> : <span className="text-slate-300">–</span>}</Td>
+                  <Td num className="text-emerald-700">{v.valor_pago ? <NumeroLink chave={`faturamento:${v.mes}:pago`} filtro={filtro} voltar={voltar}>{brl(v.valor_pago)}</NumeroLink> : <span className="text-slate-300">–</span>}</Td>
                 </tr>
               ))}
             </tbody>
@@ -108,8 +110,8 @@ export default async function FaturamentoPage({ searchParams }: { searchParams: 
               <tr className="bg-slate-50 font-semibold">
                 <Td>Total</Td>
                 <Td num>{f.vencimentos.reduce((s, v) => s + v.parcelas, 0)}</Td>
-                <Td num>{brl(f.total_vencimentos)}</Td>
-                <Td num className="text-emerald-700">{brl(f.vencimentos.reduce((s, v) => s + v.valor_pago, 0))}</Td>
+                <Td num><NumeroLink chave="faturamento:total:valor" filtro={filtro} voltar={voltar}>{brl(f.total_vencimentos)}</NumeroLink></Td>
+                <Td num className="text-emerald-700"><NumeroLink chave="faturamento:total:pago" filtro={filtro} voltar={voltar}>{brl(f.vencimentos.reduce((s, v) => s + v.valor_pago, 0))}</NumeroLink></Td>
               </tr>
             </tfoot>
           </Tabela>

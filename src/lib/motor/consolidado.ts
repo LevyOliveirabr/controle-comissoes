@@ -19,6 +19,11 @@ export interface LinhaConsolidado {
   comissao_a_receber: number;
 }
 
+/** Linhas que a tela mostra (e que entram no total): clientes com carteira ou com apuração. */
+export function linhasVisiveisConsolidado(linhas: LinhaConsolidado[]): LinhaConsolidado[] {
+  return linhas.filter((l) => l.carteira > 0 || l.comissao_apurada > 0);
+}
+
 export function calcularConsolidado(c: Calculado): LinhaConsolidado[] {
   const linhas: LinhaConsolidado[] = [];
   for (const cliente of c.dados.clientes) {

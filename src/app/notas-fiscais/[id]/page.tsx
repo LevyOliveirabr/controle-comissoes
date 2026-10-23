@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { BadgeSituacaoApuracao, BadgeStatusNf } from "@/components/badges";
 import { FormNotaFiscal } from "@/components/formularios/nota-fiscal";
 import { Mensagens } from "@/components/mensagens";
+import { CadeiaCalculo, Dica } from "@/components/rastreio";
 import { Alerta, Badge, Botao, Campo, Card, Descricao, FormExcluir, Input, Pagina, Tabela, Td, Th } from "@/components/ui";
 import { excluirApuracao } from "@/lib/acoes/comissoes";
 import { adicionarItemNf, excluirItemNf, excluirNf, excluirParcela, marcarParcelaPaga, salvarParcela } from "@/lib/acoes/notas";
+import { motivoStatusNf } from "@/lib/explicacoes";
 import { brl, data, mesCurto, num, pct } from "@/lib/formato";
 import { somarDias } from "@/lib/motor";
 import { obterResultado, type ParametrosBusca } from "@/lib/resultado";
@@ -38,13 +40,13 @@ export default async function NfPage({ params, searchParams }: { params: Promise
         <Descricao
           itens={[
             ["Status", <BadgeStatusNf key="s" status={nf.status} />],
-            ["Base de cálculo", `${brl(nf.base)} (${rep.base_calculo === "valor_produtos" ? "produtos" : "total da NF"})`],
-            ["% aplicado", <span key="p">{pct(nf.pct)} <span className="text-xs text-slate-500">({nf.pct_override != null ? "manual nesta NF" : nf.pedido?.pct_override != null ? "do pedido" : "padrão da representada"})</span></span>],
-            ["Comissão prevista", brl(nf.comissao_prevista)],
-            ["Comissão apurada", brl(nf.comissao_apurada)],
-            ["Comissão recebida", <span key="r" className="text-emerald-700">{brl(nf.comissao_recebida)}</span>],
-            ["Saldo de comissão", <strong key="sc">{brl(nf.saldo_comissao)}</strong>],
-            ["Pendente de apuração", brl(nf.pendente_apuracao)],
+            ["Base de cálculo", <span key="b">{brl(nf.base)} ({rep.base_calculo === "valor_produtos" ? "produtos" : "total da NF"}) <Dica chave="nf:base" /></span>],
+            ["% aplicado", <span key="p">{pct(nf.pct)} <span className="text-xs text-slate-500">({nf.pct_override != null ? "manual nesta NF" : nf.pedido?.pct_override != null ? "do pedido" : "padrão da representada"})</span> <Dica chave="nf:pct" /></span>],
+            ["Comissão prevista", <span key="cp">{brl(nf.comissao_prevista)} <Dica chave="nf:prevista" /></span>],
+            ["Comissão apurada", <span key="ca">{brl(nf.comissao_apurada)} <Dica chave="nf:apurada" /></span>],
+            ["Comissão recebida", <span key="r"><span className="text-emerald-700">{brl(nf.comissao_recebida)}</span> <Dica chave="nf:recebida" /></span>],
+            ["Saldo de comissão", <span key="sc"><strong>{brl(nf.saldo_comissao)}</strong> <Dica chave="nf:saldo" /></span>],
+            ["Pendente de apuração", <span key="pa">{brl(nf.pendente_apuracao)} <Dica chave="nf:pendente" /></span>],
             ["Confere com os itens?", nf.confere_itens],
           ]}
         />
@@ -61,6 +63,66 @@ export default async function NfPage({ params, searchParams }: { params: Promise
             <span className="text-xs text-slate-500"> ({rep.regra_liberacao === "por_parcela" ? "mês seguinte ao vencimento de cada parcela" : `emissão + ${rep.dias_ate_apuracao} dias até apuração + ${rep.prazo_pagamento_dias} de prazo`})</span>
           </div>
         )}
+      </Card>
+
+      <Card titulo="Como este valor foi calculado" rodape={<Link href="/ajuda" className="text-sky-700 hover:underline">Entenda os números →</Link>}>
+        <CadeiaCalculo
+          passos={[
+            {
+              rotulo: "Base de cálculo",
+              valor: brl(nf.base),
+              nota: rep.base_calculo === "valor_produtos" ? `Só os produtos (${brl(nf.valor_produtos)}), conforme o cadastro da ${rep.nome}. Total da NF: ${brl(nf.valor_total)}.` : `Valor total da NF, conforme o cadastro da ${rep.nome}.`,
+            },
+            {
+              rotulo: "Percentual aplicado",
+              valor: pct(nf.pct),
+              nota:
+                nf.pct_override != null
+                  ? "Informado manualmente nesta NF (vale acima do pedido e da representada)."
+                  : nf.pedido?.pct_override != null
+                    ? <>Veio do pedido <Link href={`/pedidos/${nf.pedido.id}`} className="text-sky-700 hover:underline">{nf.pedido.numero}</Link>, que tem % específico.</>
+                    : `% padrão cadastrado na ${rep.nome} (${pct(rep.pct_padrao)}).`,
+            },
+            { rotulo: "Comissão prevista", conta: `${brl(nf.base)} × ${pct(nf.pct)}`, valor: brl(nf.comissao_prevista), destaque: true },
+            {
+              rotulo: "Comissão apurada",
+              conta: nf.apuracoes.length ? `soma de ${nf.apuracoes.length} ${nf.apuracoes.length === 1 ? "apuração" : "apurações"}` : "nenhuma apuração lançada",
+              valor: brl(nf.comissao_apurada),
+              nota:
+                nf.apuracoes.length > 0 ? (
+                  <span>
+                    {nf.apuracoes.map((a, i) => (
+                      <span key={a.id}>
+                        {i > 0 && " + "}
+                        <Link href={`/apuracoes/${a.id}`} className="text-sky-700 hover:underline">{a.referencia ?? mesCurto(a.mes_referencia)}</Link> {brl(a.valor_apurado)}
+                      </span>
+                    ))}
+                  </span>
+                ) : undefined,
+            },
+            {
+              rotulo: "Comissão recebida",
+              conta: "só as apurações em NFS-e com data de crédito",
+              valor: brl(nf.comissao_recebida),
+              nota:
+                nf.apuracoes.filter((a) => a.situacao === "Recebida").length > 0
+                  ? nf.apuracoes.filter((a) => a.situacao === "Recebida").map((a) => `${a.referencia ?? mesCurto(a.mes_referencia)} — NFS-e ${a.nfse?.numero ?? a.nfse?.referencia ?? "s/n"}, crédito em ${data(a.nfse?.data_credito)}`).join("; ")
+                  : "Nenhuma apuração desta NF foi creditada ainda.",
+            },
+            { rotulo: "Saldo de comissão", conta: `${brl(nf.comissao_prevista)} − ${brl(nf.comissao_recebida)}`, valor: brl(nf.saldo_comissao), destaque: true },
+            {
+              rotulo: "Pendente de apuração (estágio 4 do funil)",
+              conta: `${brl(nf.comissao_prevista)} − ${brl(nf.comissao_apurada)}`,
+              valor: brl(nf.pendente_apuracao),
+              nota: nf.pendente_apuracao > 0 ? "Entra no estágio 4 'Faturada, sem apuração' e na Agenda." : nf.divergencia > 0 ? `Apurado acima do previsto em ${brl(nf.divergencia)} — tratado como zero aqui e mostrado como alerta.` : `Diferença dentro da tolerância (${brl(r.dados.parametros.tolerancia_comissao)}): nada pendente.`,
+            },
+          ]}
+          conclusao={
+            <>
+              <span className="font-semibold">Status: <BadgeStatusNf status={nf.status} /></span> — {motivoStatusNf(nf, r.dados.parametros.tolerancia_comissao)}
+            </>
+          }
+        />
       </Card>
 
       <div className="grid grid-cols-1 gap-6 2xl:grid-cols-2">

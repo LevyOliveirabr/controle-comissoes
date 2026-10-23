@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FiltroGlobal } from "@/components/filtro-global";
 import { LinkAgenda } from "@/components/link-agenda";
+import { Dica, NumeroLink, hrefComposicao } from "@/components/rastreio";
 import { Alerta, Badge, Card, Indicador, Pagina, Tabela, Td, Th } from "@/components/ui";
 import { brl, data, mesCurto, pct } from "@/lib/formato";
 import { filtroDaBusca, obterResultado, queryDoFiltro, type ParametrosBusca } from "@/lib/resultado";
@@ -13,13 +14,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const r = await obterResultado(filtro);
   const { funil, matriz, agenda } = r;
   const q = queryDoFiltro(filtro);
+  const voltar = `/${q}`;
   const colunas = matriz.representadas.filter((rep) => Math.abs(matriz.totais.por_representada[rep.id] ?? 0) > 0.004 || !filtro.representada_id);
   const maior = Math.max(...funil.estagios.map((e) => e.comissao), 1);
   const proximos = agenda.filter((i) => i.confianca === "Firme").slice(0, 8);
   const previsoes = r.pedidos.filter((p) => p.ativo && p.no_filtro && p.situacao_comercial === "previsao");
+  const comp = (chave: string) => hrefComposicao(chave, filtro, voltar);
+  const difereDaPlanilha = Math.abs(funil.a_receber_firme - funil.a_receber_firme_planilha) >= 0.005;
 
   return (
-    <Pagina titulo="Dashboard" descricao={`Posição em ${data(r.hoje)} — comissão da carteira firme, por estágio e por mês esperado de recebimento.`}>
+    <Pagina
+      titulo="Dashboard"
+      descricao={`Posição em ${data(r.hoje)} — comissão da carteira firme, por estágio e por mês esperado de recebimento. Clique em qualquer valor para ver de onde ele vem; o "?" explica a conta.`}
+      acoes={<Link href="/ajuda" className="text-sm text-sky-700 hover:underline">Entenda os números →</Link>}
+    >
       <FiltroGlobal filtro={filtro} representadas={r.dados.representadas} clientes={r.dados.clientes} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -27,15 +35,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           rotulo="Comissão a receber (firme)"
           valor={brl(funil.a_receber_firme)}
           tom="info"
+          href={comp("card:a_receber_firme")}
+          ajuda={<Dica chave="card:a_receber_firme" />}
           detalhe={
-            Math.abs(funil.a_receber_firme - funil.a_receber_firme_planilha) >= 0.005
-              ? `Estágios 2 a 5, nota a nota — pelo critério da planilha (residual): ${brl(funil.a_receber_firme_planilha)}`
-              : "Estágios 2 a 5, nota a nota"
+            difereDaPlanilha ? (
+              <>
+                Estágios 2 a 5, nota a nota. Pelo critério da planilha (residual):{" "}
+                <NumeroLink chave="card:a_receber_firme_planilha" filtro={filtro} voltar={voltar}>{brl(funil.a_receber_firme_planilha)}</NumeroLink>{" "}
+                <Dica chave="card:a_receber_firme_planilha" />
+              </>
+            ) : (
+              "Estágios 2 a 5, nota a nota"
+            )
           }
         />
-        <Indicador rotulo="Comissão já recebida" valor={brl(funil.ja_recebida)} tom="bom" detalhe="Com crédito confirmado em conta" />
-        <Indicador rotulo="Em previsão" valor={brl(funil.em_previsao.comissao)} detalhe={`${pct(funil.em_previsao.pct_da_firme, 0)} da carteira firme — fora do total`} />
-        <Indicador rotulo="Total da carteira firme" valor={brl(funil.total_firme)} detalhe={`Sobre ${brl(funil.total_base_firme)} em vendas`} />
+        <Indicador rotulo="Comissão já recebida" valor={brl(funil.ja_recebida)} tom="bom" href={comp("card:ja_recebida")} ajuda={<Dica chave="card:ja_recebida" />} detalhe="Com crédito confirmado em conta" />
+        <Indicador rotulo="Em previsão" valor={brl(funil.em_previsao.comissao)} href={comp("card:em_previsao")} ajuda={<Dica chave="card:em_previsao" />} detalhe={`${pct(funil.em_previsao.pct_da_firme, 0)} da carteira firme — fora do total`} />
+        <Indicador rotulo="Total da carteira firme" valor={brl(funil.total_firme)} href={comp("card:total_firme")} ajuda={<Dica chave="card:total_firme" alinhar="direita" />} detalhe={`Sobre ${brl(funil.total_base_firme)} em vendas`} />
       </div>
 
       {funil.divergencia.total > 0 && (
@@ -46,6 +62,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               Confirme o percentual com a representada; o funil considera o valor apurado.
             </div>
           ))}
+          <div className="mt-1 text-xs">
+            É por isso que o critério da planilha (residual) dá {brl(funil.a_receber_firme_planilha)} e o nota a nota dá {brl(funil.a_receber_firme)}: no residual, o excedente abate o que falta nas outras notas.
+          </div>
         </Alerta>
       )}
 
@@ -57,8 +76,10 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <span className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-white ${TOM_ESTAGIO[i]}`}>{e.numero}</span>
                 <div>
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm font-medium text-slate-800">{e.nome}</span>
-                    <span className="text-sm font-semibold tabular-nums text-slate-900">{brl(e.comissao)}</span>
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-slate-800">
+                      {e.nome} <Dica chave={`funil:${e.numero}`} />
+                    </span>
+                    <NumeroLink chave={`funil:${e.numero}`} filtro={filtro} voltar={voltar} className="text-sm font-semibold text-slate-900">{brl(e.comissao)}</NumeroLink>
                   </div>
                   <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     <div className={`h-2 rounded-full ${TOM_ESTAGIO[i]}`} style={{ width: `${Math.max(2, (e.comissao / maior) * 100)}%` }} />
@@ -73,7 +94,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </ol>
         </Card>
 
-        <Card titulo="Pipeline de previsão" className="lg:col-span-2" rodape="Pedidos em previsão não entram no total firme. Converta em firme quando o cliente confirmar.">
+        <Card
+          titulo={<span className="flex items-center gap-1.5">Pipeline de previsão <Dica chave="pipeline" /></span>}
+          className="lg:col-span-2"
+          rodape={
+            <span>
+              Pedidos em previsão não entram no total firme. Converta em firme quando o cliente confirmar.{" "}
+              <NumeroLink chave="pipeline" filtro={filtro} voltar={voltar}>Total: {brl(funil.em_previsao.comissao)}</NumeroLink>
+            </span>
+          }
+        >
           {previsoes.length === 0 ? (
             <p className="text-sm text-slate-500">Nenhum pedido em previsão{filtro.representada_id || filtro.cliente_id ? " no filtro atual" : ""}.</p>
           ) : (
@@ -87,7 +117,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   </div>
                   <div className="text-right">
                     <div className="font-semibold tabular-nums">{brl(p.comissao_saldo)}</div>
-                    <div className="text-xs text-slate-500">{brl(p.valor_total)} × {pct(p.pct_efetivo)}</div>
+                    <div className="text-xs text-slate-500">saldo {brl(p.saldo_a_faturar)} × {pct(p.pct_efetivo)}</div>
                   </div>
                 </li>
               ))}
@@ -96,7 +126,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </Card>
       </div>
 
-      <Card titulo={`Quando o dinheiro deve cair — próximos 12 meses (mês base ${mesCurto(matriz.mes_base)})`} rodape="Datas esperadas calculadas pelo ciclo de cada representada (dias até a apuração + prazo de pagamento). 'Vencido' é o que já deveria ter caído.">
+      <Card
+        titulo={
+          <span className="flex items-center gap-1.5">
+            Quando o dinheiro deve cair — próximos 12 meses (mês base {mesCurto(matriz.mes_base)}) <Dica chave="matriz:celula" />
+          </span>
+        }
+        rodape="Datas esperadas calculadas pelo ciclo de cada representada (dias até a apuração + prazo de pagamento). 'Vencido' é o que já deveria ter caído. Clique em um valor para ver os itens daquele mês."
+      >
         <div className="-m-5 overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-sm">
             <thead>
@@ -105,9 +142,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 {colunas.map((c) => (
                   <Th key={c.id} num>{c.nome}</Th>
                 ))}
-                <Th num className="bg-slate-100">Total firme</Th>
-                <Th num>Previsão</Th>
-                <Th num>Acumulado firme</Th>
+                <Th num className="bg-slate-100"><span className="inline-flex items-center gap-1">Total firme <Dica chave="matriz:total_firme" alinhar="direita" /></span></Th>
+                <Th num><span className="inline-flex items-center gap-1">Previsão <Dica chave="matriz:previsao" alinhar="direita" /></span></Th>
+                <Th num><span className="inline-flex items-center gap-1">Acumulado firme <Dica chave="matriz:acumulado" alinhar="direita" /></span></Th>
               </tr>
             </thead>
             <tbody>
@@ -115,24 +152,39 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 .filter((l) => l.tipo === "mes" || l.total_firme > 0 || l.em_previsao > 0)
                 .map((l) => (
                   <tr key={l.chave} className={l.tipo === "vencido" ? "bg-rose-50/60" : l.tipo !== "mes" ? "bg-slate-50" : ""}>
-                    <Td className={l.tipo === "vencido" ? "font-medium text-rose-700" : "font-medium"}>{l.tipo === "mes" ? mesCurto(l.mes) : l.rotulo}</Td>
+                    <Td className={l.tipo === "vencido" ? "font-medium text-rose-700" : "font-medium"}>
+                      <span className="inline-flex items-center gap-1">
+                        {l.tipo === "mes" ? mesCurto(l.mes) : l.rotulo}
+                        {l.tipo === "vencido" && <Dica chave="matriz:vencido" />}
+                      </span>
+                    </Td>
                     {colunas.map((c) => (
-                      <Td key={c.id} num className={l.por_representada[c.id] ? "" : "text-slate-300"}>{l.por_representada[c.id] ? brl(l.por_representada[c.id]) : "–"}</Td>
+                      <Td key={c.id} num className={l.por_representada[c.id] ? "" : "text-slate-300"}>
+                        {l.por_representada[c.id] ? <NumeroLink chave={`matriz:${l.chave}:rep:${c.id}`} filtro={filtro} voltar={voltar}>{brl(l.por_representada[c.id])}</NumeroLink> : "–"}
+                      </Td>
                     ))}
-                    <Td num className="bg-slate-50 font-semibold">{l.total_firme ? brl(l.total_firme) : <span className="text-slate-300">–</span>}</Td>
-                    <Td num className={l.em_previsao ? "text-violet-700" : "text-slate-300"}>{l.em_previsao ? brl(l.em_previsao) : "–"}</Td>
-                    <Td num className="text-slate-500">{brl(l.acumulado_firme)}</Td>
+                    <Td num className="bg-slate-50 font-semibold">
+                      {l.total_firme ? <NumeroLink chave={`matriz:${l.chave}:total_firme`} filtro={filtro} voltar={voltar}>{brl(l.total_firme)}</NumeroLink> : <span className="text-slate-300">–</span>}
+                    </Td>
+                    <Td num className={l.em_previsao ? "text-violet-700" : "text-slate-300"}>
+                      {l.em_previsao ? <NumeroLink chave={`matriz:${l.chave}:previsao`} filtro={filtro} voltar={voltar}>{brl(l.em_previsao)}</NumeroLink> : "–"}
+                    </Td>
+                    <Td num className="text-slate-500">
+                      {l.acumulado_firme ? <NumeroLink chave={`matriz:${l.chave}:acumulado`} filtro={filtro} voltar={voltar}>{brl(l.acumulado_firme)}</NumeroLink> : brl(0)}
+                    </Td>
                   </tr>
                 ))}
             </tbody>
             <tfoot>
               <tr className="font-semibold">
-                <Td>Total</Td>
+                <Td><span className="inline-flex items-center gap-1">Total <Dica chave="matriz:total" /></span></Td>
                 {colunas.map((c) => (
-                  <Td key={c.id} num>{brl(matriz.totais.por_representada[c.id] ?? 0)}</Td>
+                  <Td key={c.id} num>
+                    {matriz.totais.por_representada[c.id] ? <NumeroLink chave={`matriz:total:rep:${c.id}`} filtro={filtro} voltar={voltar}>{brl(matriz.totais.por_representada[c.id])}</NumeroLink> : brl(0)}
+                  </Td>
                 ))}
-                <Td num className="bg-slate-50">{brl(matriz.totais.total_firme)}</Td>
-                <Td num className="text-violet-700">{brl(matriz.totais.em_previsao)}</Td>
+                <Td num className="bg-slate-50"><NumeroLink chave="matriz:total:total_firme" filtro={filtro} voltar={voltar}>{brl(matriz.totais.total_firme)}</NumeroLink></Td>
+                <Td num className="text-violet-700"><NumeroLink chave="matriz:total:previsao" filtro={filtro} voltar={voltar}>{brl(matriz.totais.em_previsao)}</NumeroLink></Td>
                 <Td />
               </tr>
             </tfoot>

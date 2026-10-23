@@ -24,10 +24,34 @@ export interface Matriz {
   totais: { por_representada: Record<string, number>; total_firme: number; em_previsao: number };
 }
 
+export interface LimitesMatriz {
+  mes_base: string;
+  meses: string[];
+  ultimo_dia: string;
+}
+
+/** Mês base, os 12 meses da matriz e o último dia coberto por ela. */
+export function limitesMatriz(hoje: string): LimitesMatriz {
+  const mes_base = inicioMes(hoje);
+  const meses = Array.from({ length: 12 }, (_, i) => somarMeses(mes_base, i));
+  return { mes_base, meses, ultimo_dia: fimMes(meses[11]) };
+}
+
+/**
+ * Em qual linha da matriz um item da agenda cai: "vencido", "depois",
+ * "sem_data" ou o primeiro dia do mês ('YYYY-MM-01'). Única regra usada
+ * pela matriz e pela página Composição, para que as duas sempre batam.
+ */
+export function linhaDoItem(item: Pick<ItemAgenda, "data_esperada" | "mes">, limites: LimitesMatriz): string {
+  if (!item.data_esperada) return "sem_data";
+  if (item.data_esperada < limites.mes_base) return "vencido";
+  if (item.data_esperada > limites.ultimo_dia) return "depois";
+  return item.mes ?? inicioMes(item.data_esperada);
+}
+
 export function calcularMatriz(agenda: ItemAgenda[], representadas: Representada[], hoje: string): Matriz {
-  const mesBase = inicioMes(hoje);
-  const meses = Array.from({ length: 12 }, (_, i) => somarMeses(mesBase, i));
-  const ultimoDia = fimMes(meses[11]);
+  const limites = limitesMatriz(hoje);
+  const { mes_base: mesBase, meses } = limites;
 
   // Colunas: representadas ativas + qualquer outra que tenha valor na agenda.
   const comValor = new Set(agenda.map((a) => a.representada_id));
@@ -50,14 +74,10 @@ export function calcularMatriz(agenda: ItemAgenda[], representadas: Representada
     novaLinha("depois", "Depois desses 12 meses", null, "depois"),
     novaLinha("sem_data", "Sem data definida", null, "sem_data"),
   ];
-  const porMes = new Map(linhas.filter((l) => l.tipo === "mes").map((l) => [l.mes!, l]));
+  const porChave = new Map(linhas.map((l) => [l.chave, l]));
 
   for (const item of agenda) {
-    let linha: LinhaMatriz;
-    if (!item.data_esperada) linha = linhas[linhas.length - 1];
-    else if (item.data_esperada < mesBase) linha = linhas[0];
-    else if (item.data_esperada > ultimoDia) linha = linhas[linhas.length - 2];
-    else linha = porMes.get(item.mes!)!;
+    const linha = porChave.get(linhaDoItem(item, limites))!;
 
     if (item.confianca === "Firme") {
       linha.total_firme += item.valor;

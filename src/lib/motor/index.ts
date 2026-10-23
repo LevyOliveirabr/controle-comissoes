@@ -16,6 +16,7 @@ import type { Dados, Filtro } from "./tipos";
 
 export * from "./agenda";
 export * from "./calculo";
+export * from "./composicao";
 export * from "./consolidado";
 export * from "./datas";
 export * from "./faturamento";

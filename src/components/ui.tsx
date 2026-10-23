@@ -26,7 +26,23 @@ export function Card({ titulo, children, className = "", rodape }: { titulo?: Re
   );
 }
 
-export function Indicador({ rotulo, valor, detalhe, tom = "neutro" }: { rotulo: string; valor: string; detalhe?: ReactNode; tom?: "neutro" | "bom" | "atencao" | "ruim" | "info" }) {
+export function Indicador({
+  rotulo,
+  valor,
+  detalhe,
+  tom = "neutro",
+  href,
+  ajuda,
+}: {
+  rotulo: string;
+  valor: string;
+  detalhe?: ReactNode;
+  tom?: "neutro" | "bom" | "atencao" | "ruim" | "info";
+  /** Quando informado, o valor vira link (ex.: para a Composição). */
+  href?: string;
+  /** Ícone "?" ao lado do rótulo. */
+  ajuda?: ReactNode;
+}) {
   const cores = {
     neutro: "text-slate-900",
     bom: "text-emerald-700",
@@ -34,10 +50,20 @@ export function Indicador({ rotulo, valor, detalhe, tom = "neutro" }: { rotulo: 
     ruim: "text-rose-700",
     info: "text-sky-700",
   }[tom];
+  const numero = href ? (
+    <Link href={href} title="Ver de onde vem este valor" className="rounded-sm underline decoration-slate-300 decoration-dotted underline-offset-4 hover:bg-sky-50 hover:decoration-sky-500">
+      {valor}
+    </Link>
+  ) : (
+    valor
+  );
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{rotulo}</div>
-      <div className={`mt-2 text-2xl font-semibold tabular-nums ${cores}`}>{valor}</div>
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <span>{rotulo}</span>
+        {ajuda}
+      </div>
+      <div className={`mt-2 text-2xl font-semibold tabular-nums ${cores}`}>{numero}</div>
       {detalhe && <div className="mt-1 text-xs text-slate-500">{detalhe}</div>}
     </div>
   );

@@ -1,10 +1,13 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeSituacaoApuracao } from "@/components/badges";
 import { FormNfse } from "@/components/formularios/nfse";
 import { Mensagens } from "@/components/mensagens";
+import { CadeiaCalculo, Dica } from "@/components/rastreio";
 import { Alerta, Botao, Campo, Card, Checkbox, Descricao, FormExcluir, Input, Pagina } from "@/components/ui";
 import { excluirNfse, registrarCreditoNfse } from "@/lib/acoes/comissoes";
-import { brl, data, diasRelativos } from "@/lib/formato";
+import { motivoStatusNfse } from "@/lib/explicacoes";
+import { brl, data, diasRelativos, mesCurto } from "@/lib/formato";
 import { diferencaDias } from "@/lib/motor";
 import { obterResultado, type ParametrosBusca } from "@/lib/resultado";
 
@@ -37,11 +40,11 @@ export default async function NfseDetalhePage({ params, searchParams }: { params
           <Descricao
             itens={[
               ["Status", <BadgeSituacaoApuracao key="s" situacao={n.status} />],
-              ["Valor", <strong key="v">{brl(n.valor)}</strong>],
+              ["Valor", <span key="v"><strong>{brl(n.valor)}</strong> <Dica chave="nfse:valor" /></span>],
               ["Soma das apurações cobertas", <span key="a" className={n.alerta_valor ? "text-amber-700" : ""}>{brl(n.soma_apuracoes)}{n.alerta_valor ? ` (diferença ${brl(n.diferenca_valor)})` : ""}</span>],
               ["Emissão", data(n.data_emissao)],
               ["Enviada em", data(n.enviada_em)],
-              ["Previsão de crédito", <span key="p">{data(n.previsao_credito)} <span className="text-xs text-slate-500">(emissão + {rep.prazo_pagamento_dias} dias)</span></span>],
+              ["Previsão de crédito", <span key="p">{data(n.previsao_credito)} <span className="text-xs text-slate-500">(emissão + {rep.prazo_pagamento_dias} dias)</span> <Dica chave="nfse:previsao" /></span>],
               ["Crédito", n.data_credito ? `${data(n.data_credito)}${n.data_credito_aproximada ? " (aprox.)" : ""} — ${n.dias_em_aberto} dias após a emissão` : atraso > 0 ? <span key="x" className="text-rose-700">atrasada {atraso} dia{atraso === 1 ? "" : "s"}</span> : diasRelativos(-atraso)],
               ["Clientes", n.clientes.map((c) => c.nome).join(", ") || "—"],
             ]}
@@ -72,6 +75,59 @@ export default async function NfseDetalhePage({ params, searchParams }: { params
           </ul>
         </Card>
       </div>
+
+      <Card titulo="Como este valor foi calculado" rodape={<Link href="/ajuda" className="text-sky-700 hover:underline">Entenda os números →</Link>}>
+        <CadeiaCalculo
+          passos={[
+            { rotulo: "Valor emitido na NFS-e", valor: brl(n.valor), nota: "Informado por você ao lançar a nota." },
+            {
+              rotulo: "Apurações cobertas por esta nota",
+              conta: n.apuracoes.length ? `soma de ${n.apuracoes.length} ${n.apuracoes.length === 1 ? "apuração" : "apurações"}` : "nenhuma apuração marcada",
+              valor: brl(n.soma_apuracoes),
+              nota:
+                n.apuracoes.length > 0 ? (
+                  <span>
+                    {n.apuracoes.map((a, i) => (
+                      <span key={a.id}>
+                        {i > 0 && " + "}
+                        <Link href={`/apuracoes/${a.id}`} className="text-sky-700 hover:underline">{a.referencia ?? mesCurto(a.mes_referencia)} (NF {a.nf.numero}, {a.cliente.nome})</Link> {brl(a.valor_apurado)}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  "Marque abaixo quais apurações esta nota cobre, para elas saírem do estágio 3 e irem para o 2."
+                ),
+            },
+            {
+              rotulo: "Diferença",
+              conta: `${brl(n.valor)} − ${brl(n.soma_apuracoes)}`,
+              valor: brl(n.diferenca_valor),
+              nota: n.alerta_valor ? `Fora da tolerância (${brl(r.dados.parametros.tolerancia_comissao)}): revise o valor da nota ou as apurações cobertas.` : n.apuracoes.length ? "Dentro da tolerância: a nota bate com as apurações." : undefined,
+            },
+            {
+              rotulo: "Previsão de crédito",
+              conta: `emissão ${data(n.data_emissao)} + ${rep.prazo_pagamento_dias} dias`,
+              valor: data(n.previsao_credito),
+              nota: `Prazo de pagamento cadastrado na ${rep.nome}. É a data usada na Agenda e na matriz de 12 meses.`,
+            },
+            {
+              rotulo: n.data_credito ? "Crédito confirmado" : "Crédito",
+              valor: n.data_credito ? data(n.data_credito) : "ainda não",
+              destaque: true,
+              nota: n.data_credito
+                ? `${n.dias_em_aberto} dias após a emissão${n.data_credito_aproximada ? " (data aproximada)" : ""}.`
+                : atraso > 0
+                  ? `Já passou ${atraso} dia${atraso === 1 ? "" : "s"} da previsão. Vale cobrar a ${rep.nome}.`
+                  : `Falta${-atraso === 1 ? "" : "m"} ${-atraso} dia${-atraso === 1 ? "" : "s"} para a previsão.`,
+            },
+          ]}
+          conclusao={
+            <>
+              <span className="font-semibold">Status: <BadgeSituacaoApuracao situacao={n.status} /></span> — {motivoStatusNfse(n)}
+            </>
+          }
+        />
+      </Card>
 
       <FormNfse n={n} representadas={r.dados.representadas} apuracoesCandidatas={candidatas} />
     </Pagina>

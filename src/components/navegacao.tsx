@@ -36,6 +36,10 @@ const GRUPOS: { titulo: string; itens: { href: string; rotulo: string }[] }[] = 
       { href: "/auditoria", rotulo: "Auditoria" },
     ],
   },
+  {
+    titulo: "Ajuda",
+    itens: [{ href: "/ajuda", rotulo: "Entenda os números" }],
+  },
 ];
 
 export function Navegacao() {
