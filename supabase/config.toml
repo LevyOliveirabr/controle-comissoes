@@ -1,0 +1,30 @@
+# Configuração mínima do Supabase CLI. Gerada à mão para o MVP; ao rodar
+# `supabase init` localmente o CLI pode acrescentar seções (mantenha project_id).
+project_id = "controle-comissoes"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
