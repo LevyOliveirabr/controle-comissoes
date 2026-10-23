@@ -50,6 +50,12 @@ Postgres local sem Docker (Debian/Ubuntu): `sudo apt install postgresql`, depois
 
 Ambiente publicado: projeto Supabase `controle-comissoes` (ref `eaklfhmwsfnygdezqein`, `sa-east-1`), com as duas migrações aplicadas e a planilha importada em 23/10/2026 (todos os totais conferem).
 
+## Sistema publicado
+
+- **URL:** https://controle-comissoes-indol.vercel.app (Vercel, projeto `controle-comissoes`, time `levyoliveirabrs-projects`, funções em `gru1`). O navegador pede usuário (qualquer nome) e a senha definida em `APP_SENHA`.
+- Deploy automático a cada push em `main`. Variáveis configuradas: `DATABASE_URL`, `APP_SENHA`, `APP_USUARIO` (Production e Preview).
+- Vercel Authentication está ativa nas URLs de preview (`*-levyoliveirabrs-projects.vercel.app`); o domínio de produção é protegido pela `APP_SENHA`.
+
 ## Deploy na Vercel
 
 1. Importe o repositório na Vercel (framework Next.js, sem configuração extra; branch de produção `main`).
