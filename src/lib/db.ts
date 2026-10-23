@@ -14,6 +14,10 @@ export function criarConexao(url: string): Sql {
     max: 5,
     idle_timeout: 20,
     prepare: false, // compatível com o pooler em modo transação do Supabase
+    // Sem pipelining: pelo pooler (Supavisor) consultas enfileiradas na mesma
+    // conexão travam e voltam com resultados trocados entre tabelas. A opção
+    // existe no runtime do postgres.js mas não está nos tipos publicados.
+    ...({ max_pipeline: 0 } as object),
     onnotice: () => {},
     types: {
       date: { to: 1082, from: [1082], serialize: (v: string) => v, parse: (v: string) => v },
