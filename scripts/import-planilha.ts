@@ -58,11 +58,12 @@ async function main() {
       if (n > 0) throw new Error("Banco já tem dados. Use --limpar para substituir (apaga tudo).");
     }
 
-    const inserir = async (tabela: string, registros: Record<string, unknown>[], colunas: string[]) => {
+    const inserir = async (tabela: string, registros: object[], colunas: string[]) => {
       for (const r of registros) {
-        const linha = Object.fromEntries(colunas.map((c) => [c, r[c] ?? null]));
+        const obj = r as Record<string, unknown>;
+        const linha = Object.fromEntries(colunas.map((c) => [c, obj[c] ?? null]));
         const [{ id }] = await tx`insert into ${tx(tabela)} ${tx(linha)} returning id`;
-        ids.set(r.id as string, id as string);
+        ids.set(obj.id as string, id as string);
       }
     };
 
