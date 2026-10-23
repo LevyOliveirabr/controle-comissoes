@@ -11,7 +11,7 @@
 import { inicioMes } from "./datas";
 import { linhasVisiveisConsolidado } from "./consolidado";
 import { limitesMatriz, linhaDoItem } from "./matriz";
-import { somarPor } from "./numeros";
+import { arredondar, somarPor } from "./numeros";
 import type { ItemAgenda } from "./agenda";
 import type { ApuracaoCalculada, NfCalculada, PedidoCalculado } from "./calculo";
 import type { LinhaConsolidado } from "./consolidado";
@@ -302,8 +302,11 @@ export function composicao(r: Resultado, chave: string): Composicao | null {
       const residual = itensResidual(r);
       const somaResidual = somarPor(residual, (i) => i.valor);
       const itens = [...itensEstagio(r, 2), ...itensEstagio(r, 3), ...residual, ...itensEstagio(r, 5)];
-      if (somaResidual < 0) {
-        itens.push({ tipo: "ajuste", id: null, representada: "—", cliente: "—", documento: "Residual negativo é tratado como zero", data: null, valor: -somaResidual, href: null });
+      // O funil usa max(0, arredondar(residual)); a diferença de centavos vira uma linha de ajuste
+      // (fica oculta quando é menor que meio centavo, mas entra no total).
+      const residualFunil = Math.max(0, arredondar(somaResidual));
+      if (Math.abs(residualFunil - somaResidual) > 0) {
+        itens.push({ tipo: "ajuste", id: null, representada: "—", cliente: "—", documento: somaResidual < 0 ? "Residual negativo é tratado como zero" : "Arredondamento do residual (critério da planilha)", data: null, valor: residualFunil - somaResidual, href: null });
       }
       return montar(chave, "Comissão a receber — critério da planilha (residual)", chave, "Data", itens);
     }

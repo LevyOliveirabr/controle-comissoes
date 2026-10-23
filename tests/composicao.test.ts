@@ -19,33 +19,38 @@ const total = (chave: string) => {
   return c!;
 };
 
+/** O que o usuário vê: o total formatado em centavos tem de ser idêntico ao número clicado. */
+const centavos = (v: number) => Math.round((Math.abs(v) < 0.005 ? 0 : v) * 100);
+const mesmoValorExibido = (chave: string, esperado: number) => {
+  const c = total(chave);
+  expect(centavos(c.total), `${chave}: ${c.total} ≠ ${esperado}`).toBe(centavos(esperado));
+  return c;
+};
+
 describe("cards do Dashboard", () => {
   it("a receber (firme) = estágios 2 a 5", () => {
-    const c = total("card:a_receber_firme");
-    expect(c.total).toBeCloseTo(r.funil.a_receber_firme, 2);
+    const c = mesmoValorExibido("card:a_receber_firme", r.funil.a_receber_firme);
     expect(c.itens.length).toBeGreaterThan(0);
     for (const i of c.itens) expect(i.href).toMatch(/^\/(notas-fiscais|pedidos|apuracoes)\//);
   });
 
   it("critério da planilha (residual) inclui a Green negativa e bate com o funil", () => {
-    const c = total("card:a_receber_firme_planilha");
-    expect(c.total).toBeCloseTo(r.funil.a_receber_firme_planilha, 2);
+    const c = mesmoValorExibido("card:a_receber_firme_planilha", r.funil.a_receber_firme_planilha);
     const green = c.itens.find((i) => i.representada === "Green" && i.valor < 0);
     expect(green?.valor).toBeCloseTo(-111.44, 2);
   });
 
   it("já recebida, em previsão e total firme", () => {
-    expect(total("card:ja_recebida").total).toBeCloseTo(r.funil.ja_recebida, 2);
-    expect(total("card:em_previsao").total).toBeCloseTo(r.funil.em_previsao.comissao, 2);
-    expect(total("card:total_firme").total).toBeCloseTo(r.funil.total_firme, 2);
-    expect(total("pipeline").total).toBeCloseTo(r.funil.em_previsao.comissao, 2);
+    mesmoValorExibido("card:ja_recebida", r.funil.ja_recebida);
+    mesmoValorExibido("card:em_previsao", r.funil.em_previsao.comissao);
+    mesmoValorExibido("card:total_firme", r.funil.total_firme);
+    mesmoValorExibido("pipeline", r.funil.em_previsao.comissao);
   });
 });
 
 describe("funil", () => {
   it.each([1, 2, 3, 4, 5])("estágio %i", (n) => {
-    const c = total(`funil:${n}`);
-    expect(c.total).toBeCloseTo(r.funil.estagios[n - 1].comissao, 2);
+    const c = mesmoValorExibido(`funil:${n}`, r.funil.estagios[n - 1].comissao);
     const tipos = new Set(c.itens.map((i) => i.tipo));
     if (n <= 3 && c.itens.length) expect(tipos).toEqual(new Set(["apuracao"]));
     if (n === 4) expect(tipos).toEqual(new Set(["nf"]));
@@ -57,20 +62,20 @@ describe("matriz 12 meses", () => {
   it("cada célula, total firme, previsão e acumulado batem", () => {
     for (const l of r.matriz.linhas) {
       for (const rep of r.matriz.representadas) {
-        expect(total(`matriz:${l.chave}:rep:${rep.id}`).total, `${l.chave}/${rep.nome}`).toBeCloseTo(l.por_representada[rep.id], 2);
+        mesmoValorExibido(`matriz:${l.chave}:rep:${rep.id}`, l.por_representada[rep.id]);
       }
-      expect(total(`matriz:${l.chave}:total_firme`).total, `${l.chave} total`).toBeCloseTo(l.total_firme, 2);
-      expect(total(`matriz:${l.chave}:previsao`).total, `${l.chave} previsão`).toBeCloseTo(l.em_previsao, 2);
-      expect(total(`matriz:${l.chave}:acumulado`).total, `${l.chave} acumulado`).toBeCloseTo(l.acumulado_firme, 2);
+      mesmoValorExibido(`matriz:${l.chave}:total_firme`, l.total_firme);
+      mesmoValorExibido(`matriz:${l.chave}:previsao`, l.em_previsao);
+      mesmoValorExibido(`matriz:${l.chave}:acumulado`, l.acumulado_firme);
     }
   });
 
   it("totais da matriz", () => {
     for (const rep of r.matriz.representadas) {
-      expect(total(`matriz:total:rep:${rep.id}`).total).toBeCloseTo(r.matriz.totais.por_representada[rep.id], 2);
+      mesmoValorExibido(`matriz:total:rep:${rep.id}`, r.matriz.totais.por_representada[rep.id]);
     }
-    expect(total("matriz:total:total_firme").total).toBeCloseTo(r.matriz.totais.total_firme, 2);
-    expect(total("matriz:total:previsao").total).toBeCloseTo(r.matriz.totais.em_previsao, 2);
+    mesmoValorExibido("matriz:total:total_firme", r.matriz.totais.total_firme);
+    mesmoValorExibido("matriz:total:previsao", r.matriz.totais.em_previsao);
     // A matriz distribui no tempo exatamente o card "a receber (firme)".
     expect(r.matriz.totais.total_firme).toBeCloseTo(r.funil.a_receber_firme, 2);
   });
@@ -89,7 +94,7 @@ describe("consolidado", () => {
   it("cada linha × coluna", () => {
     for (const l of visiveis) {
       for (const col of colunas) {
-        expect(total(`consolidado:${l.cliente_id}:${col}`).total, `${l.cliente}/${col}`).toBeCloseTo(l[col], 2);
+        mesmoValorExibido(`consolidado:${l.cliente_id}:${col}`, l[col]);
       }
     }
   });
@@ -97,7 +102,7 @@ describe("consolidado", () => {
   it("totais", () => {
     for (const col of colunas) {
       const esperado = visiveis.reduce((s, l) => s + l[col], 0);
-      expect(total(`consolidado:total:${col}`).total, col).toBeCloseTo(esperado, 2);
+      mesmoValorExibido(`consolidado:total:${col}`, esperado);
     }
   });
 });
@@ -105,12 +110,11 @@ describe("consolidado", () => {
 describe("faturamento", () => {
   it("vencimentos por mês e total", () => {
     for (const v of r.faturamento.vencimentos) {
-      const c = total(`faturamento:${v.mes}:valor`);
-      expect(c.total).toBeCloseTo(v.valor, 2);
+      const c = mesmoValorExibido(`faturamento:${v.mes}:valor`, v.valor);
       expect(c.itens).toHaveLength(v.parcelas);
-      expect(total(`faturamento:${v.mes}:pago`).total).toBeCloseTo(v.valor_pago, 2);
+      mesmoValorExibido(`faturamento:${v.mes}:pago`, v.valor_pago);
     }
-    expect(total("faturamento:total:valor").total).toBeCloseTo(r.faturamento.total_vencimentos, 2);
+    mesmoValorExibido("faturamento:total:valor", r.faturamento.total_vencimentos);
   });
 });
 
